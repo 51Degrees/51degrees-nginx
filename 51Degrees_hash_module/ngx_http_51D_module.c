@@ -1958,7 +1958,7 @@ static ngx_uint_t ngx_http_51D_get_match(
 	// with no override values. No mode bits means no detection, and the caller
 	// reads the last match, so that match keeps its values.
 	if (multi != 0) {
-		fiftyoneDegreesOverrideValuesReset(results->b.overrides);
+		fiftyoneDegreesOverrideValuesReset(results->b.b.overrides);
 	}
 
 	EXCEPTION_CREATE
