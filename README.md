@@ -42,35 +42,41 @@ In order to use the module, you will need at least one 51Degrees data file. Each
 
 ### Device detection data file
 
-This repository includes a free, 'lite' file in the 'device-detection-data' 
-sub-module that has a significantly reduced set of properties. To obtain a 
-file with a more complete set of device properties see the 
-[51Degrees website](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=device-detection-data-file). 
-If you want to use the lite file, you will need to install [GitLFS](https://git-lfs.github.com/).
+The free, 'lite' file `51Degrees-LiteV4.1.hash` has a significantly reduced
+set of properties. To obtain a file with a more complete set of device
+properties see the
+[51Degrees website](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=device-detection-data-file).
 
-For Linux:
-```
-sudo apt-get install git-lfs
-git lfs install
-```
-
-Then, navigate to the `cxx/device-detection-data` directory and execute:
+The free data files are not stored in this repository. The `cxx/data`
+sub-module, which is the [data](https://github.com/51Degrees/data)
+repository, holds a link to each one, and its script downloads each file
+beside its link. Run this from the root of this repository.
 
 ```
-git lfs pull
+sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash
 ```
+
+This saves the file as `cxx/data/device-detection/51Degrees-LiteV4.1.hash`.
+A file that is already there is kept. Add `-u` to replace it when a newer
+version is available.
 
 ### IP Intelligence data file
 
-The 'ip-intelligence-data' sub-module includes a free `51Degrees-IPIV4AsnIpiV41.ipi` file which contains the Asn properties (Asn and AsnName). This file is used by default for the IP Intelligence examples and tests.
+The free `51Degrees-IPIV4AsnIpiV41.ipi` file contains the Asn properties (Asn and AsnName). This file is used by default for the IP Intelligence examples and tests. Download it in the same way.
 
-The sub-module also provides scripts (`get-lite-file-from-azure.sh`) to download a free, 'lite' IP Intelligence data file which has a different, reduced set of properties (RegisteredCountry, RegisteredName and RegisteredOwner). Note that the version of the downloaded data file must match the version expected by the IP Intelligence sources in the cxx sub-module, as with any 51Degrees data file. To obtain a file with the complete set of properties see the [51Degrees website](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=ip-intelligence-data-file).
+```
+sh cxx/data/get-data-files.sh 51Degrees-IPIV4AsnIpiV41.ipi
+```
+
+This saves the file as `cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi`.
+
+The same script downloads a free, 'lite' IP Intelligence data file, `51Degrees-LiteV41.ipi`, which has a different, reduced set of properties (RegisteredCountry, RegisteredName and RegisteredOwner). Note that the version of the downloaded data file must match the version expected by the IP Intelligence sources in the cxx sub-module, as with any 51Degrees data file. To obtain a file with the complete set of properties see the [51Degrees website](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=ip-intelligence-data-file).
 
 ## Quick start (Device Detection)
 
 To quickly start using 51Degrees module with NGINX, please follow the below steps:
 - Install an NGINX version 1.19.0 or above.
-- Obtain a 51Degrees data file. A Lite version is available at [GitHub](https://github.com/51Degrees/device-detection-data).
+- Obtain a 51Degrees data file. The free Lite file is downloaded by the script in the [data](https://github.com/51Degrees/data) repository, for example with `git clone --depth 1 https://github.com/51Degrees/data.git && sh data/get-data-files.sh 51Degrees-LiteV4.1.hash`, which saves it as `data/device-detection/51Degrees-LiteV4.1.hash`.
 - Download the pre-built binaries at our [GitHub release page](https://github.com/51Degrees/51degrees-nginx/releases).
 - Choose the binary for the version of NGINX that you want to use.
 - Create a folder which we will use for this quick start.
@@ -121,7 +127,7 @@ nginx -p . -s quit
 
 ## Quick start (IP Intelligence)
 
-IP Intelligence works in the same way, using its own module, data file and match directive. The following configuration sets a request header from the ASN name of the network of the client IP address, or of an IP address supplied as a query argument. The AsnName property is available in the `51Degrees-IPIV4AsnIpiV41.ipi` file included in the ip-intelligence-data sub-module. Data files with a fuller set of properties provide properties such as RegisteredName, RegisteredCountry and RegisteredOwner which can be requested in the same way.
+IP Intelligence works in the same way, using its own module, data file and match directive. The following configuration sets a request header from the ASN name of the network of the client IP address, or of an IP address supplied as a query argument. The AsnName property is available in the free `51Degrees-IPIV4AsnIpiV41.ipi` file, which is downloaded as described in [Data files](#data-files). Data files with a fuller set of properties provide properties such as RegisteredName, RegisteredCountry and RegisteredOwner which can be requested in the same way.
 ```
 # Specify the module to load. Add an additional load_module line for the
 # device detection module to use both engines together.
@@ -261,7 +267,9 @@ If you have already cloned the repository and want to fetch the sub modules, use
 git submodule update --init --recursive
 ```
 
-If you have downloaded this repository as a zip file then these sub modules need to be downloaded separately as GitHub does not include them in the archive. In particular, note that the zip download will contain links to LFS content, rather than the files themselves. As such, these need to be downloaded individually.
+If you have downloaded this repository as a zip file then these sub modules need to be downloaded separately as GitHub does not include them in the archive. The data files are downloaded separately in any case, as described in [Data files](#data-files).
+
+Earlier versions read the data files from the `cxx/device-detection-data` and `cxx/ip-intelligence-data` sub-modules. They are now read from `cxx/data/device-detection` and `cxx/data/ip-intelligence`, so move any data file you added to an old folder into the matching new one. The build, tests and examples no longer read the old folders. When a later version of cxx removes them, Git leaves them on disk, so delete them then.
 
 ## Build
 
@@ -310,7 +318,7 @@ To be able to test the 51Degrees module the following libraries are required.
 
 Before running any test, make sure to build the project with `make install` command. The tests are designed to test the dynamic build only so `STATIC_BUILD` will not work.
 
-To run the 51Degrees tests with the default 51Degrees Lite data file included in the `cxx/device-detection-data` directory, run the following command:
+To run the 51Degrees tests with the free 51Degrees Lite data file in the `cxx/data/device-detection` directory, download it as described in [Data files](#data-files), then run the following command.
 ```
 make test
 ```
@@ -330,11 +338,11 @@ The data file used by the tests is resolved in the following order:
 1. The `51DEGREES_DD_PATH` environment variable, which provides an explicit
    path to the data file.
 2. The legacy `FIFTYONEDEGREES_DATAFILE` variable, which provides a file name
-   that is combined with the `cxx/device-detection-data`
+   that is combined with the `cxx/data/device-detection`
    folder. This variable is deprecated and will be removed in a future
    release. Using it prints a make warning, use `51DEGREES_DD_PATH` instead.
 3. When neither variable is set, the free Lite data file
-   `51Degrees-LiteV4.1.hash` in the `cxx/device-detection-data`
+   `51Degrees-LiteV4.1.hash` in the `cxx/data/device-detection`
    folder is used.
 
 For example:
@@ -345,7 +353,7 @@ make test 51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
 Note that when running NGINX itself the data file is always specified
 explicitly with the `51D_file_path` directive in the configuration file.
 
-The IP Intelligence tests resolve their data file in the same order. The `51DEGREES_IPI_PATH` environment variable provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/ip-intelligence-data` folder, it is deprecated and using it prints a make warning. When neither variable is set the `51Degrees-IPIV4AsnIpiV41.ipi` file included in the sub-module is used. The IP Intelligence example tests are skipped when the file is not present. e.g.
+The IP Intelligence tests resolve their data file in the same order. The `51DEGREES_IPI_PATH` environment variable provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/data/ip-intelligence` folder, it is deprecated and using it prints a make warning. When neither variable is set the free `51Degrees-IPIV4AsnIpiV41.ipi` file in that folder is used, which is downloaded as described in [Data files](#data-files). The IP Intelligence example tests are skipped when the file is not present. e.g.
 ```
 make test-examples 51DEGREES_IPI_PATH=/path/to/51Degrees-IPIV4AsnIpiV41.ipi
 ```
@@ -356,6 +364,7 @@ The project also include a performance test suite. This required `CMake 3.24` or
 
 To run the performance test, please follow the below steps:
 - Make sure to build the project with `make install`.
+- Download the Lite data file, and the Asn file for `ENGINE=ipi`, as described in [Data files](#data-files). CMake downloads the User-Agents and evidence records files into `cxx/data/device-detection` when they are missing.
 - Navigate to the `tests/performance` directory.
 - Create a `build` folder and navigate to it.
 - Run:
@@ -370,7 +379,7 @@ By default the performance test exercises the Device Detection module using a fi
 ```
 ENGINE=ipi ./runPerf.sh
 ```
-This uses the `evidence.csv` file of 20,000 IP addresses from the ip-intelligence-data sub-module, with each request carrying an IP address which the `51D_match_ipi` directive reads from the User-Agent header via the `$http_user_agent` variable. The nightly CI runs both variants and records a `DetectionsPerSecond` result for each, which feeds the benchmark graphs published from the `gh-images` branch.
+This uses the `evidence.csv` file of 20,000 IP addresses in the `cxx/data/ip-intelligence` folder, with each request carrying an IP address which the `51D_match_ipi` directive reads from the User-Agent header via the `$http_user_agent` variable. The nightly CI runs both variants and records a `DetectionsPerSecond` result for each, which feeds the benchmark graphs published from the `gh-images` branch.
 
 # For developers
 

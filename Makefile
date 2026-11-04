@@ -37,8 +37,8 @@ $(warning FIFTYONEDEGREES_DATAFILE_IPI is deprecated and will be removed in a fu
 endif
 
 MODULEPATH := $(FULLPATH)/build/modules/ngx_http_51D_module.so
-FILEPATH := $(FULLPATH)/cxx/device-detection-data/$(DATAFILE)
-FILEPATH_IPI := $(FULLPATH)/cxx/ip-intelligence-data/$(DATAFILE_IPI)
+FILEPATH := $(FULLPATH)/cxx/data/device-detection/$(DATAFILE)
+FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/$(DATAFILE_IPI)
 
 # The aligned environment variable 51DEGREES_DD_PATH provides an explicit
 # path to a device detection data file and is checked first. The legacy
