@@ -26,8 +26,10 @@ modules work only on-premise, with a data file.
   `make`, zlib, PCRE and `libatomic`.
 - `curl`, which the Makefile uses to download the nginx source from nginx.org,
   and which sends the requests.
-- Git, and [Git LFS](https://git-lfs.github.com/) for the Device Detection
-  data file.
+- `gzip` and `md5sum`, which the data repository's download script needs
+  beside `curl`, and network access to `distributor.51degrees.com` for the
+  data files.
+- Git.
 
 On Ubuntu, CI installs the build tools with this command, on runners that
 already have gcc.
@@ -51,60 +53,25 @@ git submodule update --init --recursive
 
 ### Data files
 
-The examples use free data files, which need no licence key. The data comes
-from the `cxx` submodule, and two layouts exist. The `FILEPATH :=` line in
-`Makefile` names the folder the build reads, so look there to find out which
-layout your checkout has.
-
-- **`cxx/device-detection-data`.** This is the layout on `rc` and `main`
-  today. Follow "Without cxx/data".
-- **`cxx/data/device-detection`.** The draft pull request
-  [#467](https://github.com/51Degrees/51degrees-nginx/pull/467) moves the
-  build, tests and examples to the [data](https://github.com/51Degrees/data)
-  repository, which cxx carries as `cxx/data`. Once it is merged, follow
-  "With cxx/data".
-
-Go by the Makefile rather than by whether `cxx/data` exists, because the
-folder can arrive with a newer `cxx` before the Makefile reads it.
-
-#### Without cxx/data
-
-The Device Detection Lite file is stored with Git LFS. Install Git LFS, then
-pull the file in its submodule.
+The examples use free data files, which need no licence key. They are not
+stored in this repository. The `cxx` submodule holds the
+[data](https://github.com/51Degrees/data) repository as `cxx/data`, which has a
+link to each file, and a script downloads them into `cxx/data/device-detection`
+and `cxx/data/ip-intelligence`, where the `FILEPATH :=` and `FILEPATH_IPI :=`
+lines in `Makefile` look for them. Nothing in the build downloads a file, so
+download the Device Detection Lite file and the IP Intelligence Asn file
+first.
 
 ```
-sudo apt-get install git-lfs
-git lfs install
-cd cxx/device-detection-data
-git lfs pull
-cd ../..
+sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-IPIV4AsnIpiV41.ipi
 ```
 
-The IP Intelligence example uses the free Asn file,
-`cxx/ip-intelligence-data/51Degrees-IPIV4AsnIpiV41.ipi`, which is committed in
-that submodule, so there is nothing to download for it.
-
-#### With cxx/data
-
-```
-sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash
-sh cxx/data/get-data-files.sh 51Degrees-IPIV4AsnIpiV41.ipi
-```
-
-These save `cxx/data/device-detection/51Degrees-LiteV4.1.hash` and
-`cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi`, and keep a file that
-is already there. The script needs `curl` and `gzip`.
+The script keeps a file that is already there.
 
 #### Check the files
 
-- `cxx/device-detection-data/51Degrees-LiteV4.1.hash` is more than 10 MB. A
-  file of about 130 bytes that starts with
-  `version https://git-lfs.github.com/spec/v1` is a Git LFS pointer, which
-  means Git LFS has not pulled the file.
-- `cxx/ip-intelligence-data/51Degrees-IPIV4AsnIpiV41.ipi` is about 6 MB.
-
-With `cxx/data`, the same files are in `cxx/data/device-detection` and
-`cxx/data/ip-intelligence`.
+- `cxx/data/device-detection/51Degrees-LiteV4.1.hash` is more than 10 MB.
+- `cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi` is more than 1 MB.
 
 ### Build
 
@@ -219,23 +186,25 @@ There are none. The nginx modules work only on-premise, with a data file.
 
 ### Pitfalls
 
-- **A Git LFS pointer instead of the data file.** nginx then does not start,
-  and its error log, `build/logs/error.log`, has a line starting with
-  `51Degrees` that describes the data file. Check the file sizes as above.
+- **A data file that is not there.** `cxx/data` holds a `.link` for each file
+  rather than the file. nginx then does not start, and its error log,
+  `build/logs/error.log`, has a line starting with `51Degrees` that describes
+  the data file. Download the files and check their sizes as above.
 - **Missing submodules.** `make install` then stops at its first
   `cp cxx/src/...`, because the module sources come from the `cxx` submodule.
-  A zip download of the repository has neither the submodules nor the Git LFS
-  files, so clone with Git.
+  A zip download of the repository has no submodules, so clone with Git.
 - **The nginx version.** Plain `make install` builds nginx 1.20.0. Give
   `FIFTYONEDEGREES_NGINX_VERSION` as "Build" shows, so that you build a
   version CI tests.
 - **Linux only.** The Makefile uses GNU `sed -i` and links `-latomic`, and the
   README says only Linux is supported. Use WSL on Windows and Docker on macOS.
 - **Windows line endings.** This repository's `.gitattributes` keeps LF line
-  endings for its own files, whatever `core.autocrlf` says. The submodules
-  have no such setting for their text files, so a checkout made by Git for
-  Windows, which usually sets `core.autocrlf=true`, gives those files Windows
-  line endings. Clone inside WSL, not on a Windows drive.
+  endings for its own files, whatever `core.autocrlf` says. `cxx` has no
+  `.gitattributes`, and `cxx/data` keeps LF only for its shell script and its
+  links, so a checkout made by Git for Windows, which usually sets
+  `core.autocrlf=true`, gives their other text files, such as the IP
+  Intelligence evidence files, Windows line endings. Clone inside WSL, not on
+  a Windows drive.
 - **`make install` deletes the build.** It runs the `clean` target first,
   which removes `./nginx` and `build`, and with `build` the pid file that
   `./nginx -s quit` needs. Stop nginx before building again, or the old nginx
@@ -248,9 +217,9 @@ There are none. The nginx modules work only on-premise, with a data file.
   serve, so it gets `404 Not Found` with no 51Degrees headers. Use the request
   in `examples/curl/README.md` instead.
 - **What CI does not test.** CI builds with the paid `TAC-HashV41.hash`
-  (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
-  `ci/fetch-assets.ps1` deletes the committed Asn file and downloads it again.
-  So CI never uses the Lite Device Detection file or the committed Asn file.
+  (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), so it
+  never uses the Lite Device Detection file. `ci/fetch-assets.ps1` downloads
+  the Asn file with the data repository's script, as the steps here do.
 
 ## Building the modules
 
