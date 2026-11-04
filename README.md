@@ -28,7 +28,7 @@ This directive sets the request header `x-device` to the device's hardware, brow
 51D_match_all x-device HardwareName,BrowserName,PlatformName;
 ```
 
-[Developer documentation](https://51degrees.com/documentation/_other_integrations__nginx.html?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=51degrees-real-time-data-nginx-module)
+[Developer documentation](https://51degrees.com/documentation/_device_detection__other_integrations__nginx.html?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=51degrees-real-time-data-nginx-module)
 
 # Introduction 
 This project integrates the 51Degrees real-time data engines as modules to NGINX, allowing users to configure NGINX to enrich requests with real-time data by setting corresponding 51Degrees directives in the NGINX configuration file. Two engines are available, the Device Detection V4 engine which provides device properties from request headers, and the IP Intelligence engine which provides network and location properties from the client IP address. Each engine is built as its own dynamic module (`ngx_http_51D_module` for Device Detection and `ngx_http_51D_ipi_module` for IP Intelligence) and the modules can be loaded together or independently. Currently only Linux platform is supported.
@@ -166,7 +166,7 @@ The above gave you a quick overview of how to use the 51Degrees NGINX module. Ho
 ## Latest releases
 The latest releases of 51Degrees NGINX module can be found on [GitHub](https://github.com/51Degrees/51degrees-nginx/releases).
 
-For the supported platforms and NGINX version, please check the [tested versions page](https://51degrees.com/documentation/_info__tested_versions.html?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=latest-releases) for latest update. At the time of writing, the followings are tested by the continuous integration pipeline:
+For the supported platforms and NGINX version, please check the [tested versions page](https://51degrees.com/documentation/_product_summaries__tested_versions.html?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=latest-releases) for latest update. At the time of writing, the followings are tested by the continuous integration pipeline:
 - Platform Ubuntu (ubuntu-latest), 64bit.
 - NGINX version: 1.27.2, 1.27.4, 1.29.0 and 1.29.3
 
