@@ -34,7 +34,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(3);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(5);
 
 my $t_file = read_example('gettingStarted.conf');
 # Remove the documentation block
@@ -79,6 +79,17 @@ my $r = get_with_ua('/hash', $mobileUserAgent);
 like($r, qr/x-mobile: True/, 'Mobile match (single User-Agent)');
 like($r, qr/x-device: [a-zA-Z ]+,[a-zA-Z ]+/, 'Mobile match (single User-Agent)');
 like($r, qr/x-device-hinted: [a-zA-Z ]+,[a-zA-Z ]+/, 'Mobile match (single User-Agent)');
+
+# The hardware properties are only in the Enterprise data file. On the free
+# Lite data file they read NoMatch, and x-enterprise links to ask for a copy.
+if (index($ENV{TEST_FILE_PATH}, '51Degrees-Lite') != -1) {
+	like($r, qr/x-hardware: NoMatch,NoMatch,NoMatch\r/, 'Hardware needs the Enterprise data file');
+	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
+}
+else {
+	unlike($r, qr/x-hardware: .*NoMatch/, 'Hardware matched');
+	unlike($r, qr/x-enterprise:/, 'No link with the Enterprise data file');
+}
 
 ###############################################################################
 

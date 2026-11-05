@@ -69,7 +69,7 @@ if (!defined $ipiFilePath || !-e $ipiFilePath) {
 	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(5);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(7);
 
 my $t_file = read_example('gettingStarted.conf');
 # Remove the documentation block
@@ -124,6 +124,24 @@ like($r, qr/x-mobile: True/, 'Mobile match (device detection)');
 like($r, qr/x-asn: .+/, 'ASN name set (client IP)');
 like($r, qr/x-asn-query: .+/, 'ASN name set (query IP)');
 unlike($r, qr/x-asn-query: (NoMatch)?\r/, 'Query IP matched');
+
+# The hardware and location properties are only in the Enterprise data
+# files. On a free data file they read NoMatch, and x-enterprise links to ask
+# for a copy.
+my $freeHash = index($hashFilePath, '51Degrees-Lite') != -1;
+my $freeIpi = index($ipiFilePath, 'Enterprise') == -1;
+if ($freeHash) {
+	like($r, qr/x-hardware: NoMatch,NoMatch,NoMatch\r/, 'Hardware needs the Enterprise data file');
+}
+else {
+	unlike($r, qr/x-hardware: .*NoMatch/, 'Hardware matched');
+}
+if ($freeHash || $freeIpi) {
+	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data files');
+}
+else {
+	unlike($r, qr/x-enterprise:/, 'No link with the Enterprise data files');
+}
 
 # The client IP address text held by nginx is not null terminated, so a
 # parse failure here indicates the module has passed it to the engine
