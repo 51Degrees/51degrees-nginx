@@ -44,6 +44,7 @@ x-platform-version: 11.0
 x-browser-name: Edge (Chromium) for Windows
 x-browser-version: 114.0
 x-is-mobile: False
+x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-curl-nginx.conf&utm_term=enterprise-data-file
 Accept-Ranges: bytes
 ```
 
@@ -65,5 +66,6 @@ x-platform-version: 11.0
 x-browser-name: Edge (Chromium) for Windows
 x-browser-version: 114.0
 x-is-mobile: False
+x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-curl-nginx.conf&utm_term=enterprise-data-file
 Accept-Ranges: bytes
 ```
