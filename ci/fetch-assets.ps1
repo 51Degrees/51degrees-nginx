@@ -4,25 +4,18 @@ param (
 )
 $ErrorActionPreference = "Stop"
 
+$data = "$PSScriptRoot/../cxx/data"
+
 $assets = "TAC-HashV41.hash", "20000 Evidence Records.yml", "20000 User Agents.csv"
 ./steps/fetch-assets.ps1 -DeviceDetection:$DeviceDetection -DeviceDetectionUrl:$DeviceDetectionUrl -Assets $assets
 foreach ($asset in $assets) {
-    New-Item -ItemType SymbolicLink -Force -Target "$PWD/assets/$asset" -Path "$PSScriptRoot/../cxx/device-detection-data/$asset"
+    New-Item -ItemType SymbolicLink -Force -Target "$PWD/assets/$asset" -Path "$data/device-detection/$asset"
 }
 
-Push-Location "$PSScriptRoot/../cxx/ip-intelligence-data"
-try {
-    Write-Host "Entering $PWD"
-    # Remove old Asn file (if exists)
-    $AsnFilePath = "51Degrees-IPIV4AsnIpiV41.ipi"
-    if (Test-Path -Type Leaf -Path $AsnFilePath) {
-        Remove-Item -Path $AsnFilePath
-        Write-Host "Deleted $AsnFilePath"
-    }
-    
-    Write-Host "Loading free IPI data files..."
-    & ./get-lite-file-from-azure.ps1
-} finally {
-    Write-Host "Leaving $PWD"
-    Pop-Location
+# The IP intelligence tests use the free Asn file, which the data repository
+# links to rather than stores, so its script downloads it.
+$global:LASTEXITCODE = 0
+& "$data/get-data-files.ps1" 51Degrees-IPIV4AsnIpiV41.ipi
+if ($LASTEXITCODE -ne 0) {
+    throw "The Asn data file was not downloaded"
 }
