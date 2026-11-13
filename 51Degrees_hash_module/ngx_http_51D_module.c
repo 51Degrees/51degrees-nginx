@@ -1628,7 +1628,7 @@ static void add_value(char *delimiter, char *val, char *dst, size_t length)
  * Check if a property being requested is a meta data property.
  * @param val the string value.
  */
-static bool is_metadata(char *val) {
+static bool is_metadata(const char *val) {
 	return StringCompare(val, "Iterations") == 0 ||
 		StringCompare(val, "Drift") == 0 ||
 		StringCompare(val, "Difference") == 0 ||
@@ -1952,7 +1952,7 @@ static ngx_uint_t ngx_http_51D_get_match(
 
 	// A worker uses these results for every request, so each detection starts
 	// with no override values.
-	fiftyoneDegreesOverrideValuesReset(results->b.overrides);
+	fiftyoneDegreesOverrideValuesReset(results->b.b.overrides);
 
 	EXCEPTION_CREATE
 	// If single requested, match for single User-Agent.
@@ -2029,7 +2029,22 @@ void ngx_http_51D_get_value(
 
 	if (charsAdded >= 0 && charsAdded < (ngx_int_t)remainingLength) {
 		EXCEPTION_CREATE
-		if (StringCompare(
+		// The match metrics are read from the result items, which the walk of
+		// each component's graph sets. Unless the data set was created with
+		// its properties named, a graph is walked only when a property of its
+		// component is first read, so walk any graph not yet walked first.
+		if (is_metadata(requiredPropertyName)) {
+			ResultsEvaluateAll(&results->b.b, exception);
+		}
+		if (EXCEPTION_FAILED) {
+			report_status(
+				r->connection->log,
+				exception->status,
+				(const char *)fdmcf->dataFile.data);
+			snprintf(dest, remainingLength, "%c", '\0');
+			charsAdded = 0;
+		}
+		else if (StringCompare(
 			requiredPropertyName, "Iterations") == 0) {
 			charsAdded = snprintf(
 				dest, remainingLength, "%d", results->items->iterations);
