@@ -1,0 +1,47 @@
+name: Temporary verbose run of the client IP value test
+
+on:
+  push:
+    branches:
+      - tmp/verbose-forms
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [d89ba8c9a3af5e2982e3376ea2ae21ca4d51dcdb, cd0597a1d8f6fab76ea418a9b5c58b263b1fc05e]
+    steps:
+      - name: Clone
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          git clone --no-checkout https://github.com/51Degrees/51degrees-nginx 51degrees-nginx; git -C 51degrees-nginx checkout ${{ matrix.ref }}; git -C 51degrees-nginx submodule update --init --recursive --depth 1
+          git -C 51degrees-nginx log -1 --format='module at %H %s'
+          git -C 51degrees-nginx/cxx log -1 --format='cxx at %H %s'
+      - name: Fetch the Asn data file as CI does
+        run: |
+          $global:LASTEXITCODE = 0
+          & ./51degrees-nginx/cxx/data/get-data-files.ps1 51Degrees-IPIV4AsnIpiV41.ipi
+          if ($LASTEXITCODE -ne 0) { throw "The Asn data file was not downloaded" }
+          Get-ChildItem 51degrees-nginx/cxx/data/ip-intelligence | Select-Object Name, Length
+      - name: Set up as CI does
+        run: ./51degrees-nginx/ci/setup-environment.ps1 -RepoName 51degrees-nginx -NginxVersion 1.29.3 -Name proof
+      - name: Build
+        run: |
+          Set-Location 51degrees-nginx
+          make DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=1.29.3 install 2>&1 | Select-Object -Last 6
+      - name: The client IP value test
+        if: ${{ !cancelled() }}
+        run: |
+          Set-Location 51degrees-nginx
+          make test-examples DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=1.29.3 EXAMPLE_TESTS="tests/examples/ipiAddressForms.t"
