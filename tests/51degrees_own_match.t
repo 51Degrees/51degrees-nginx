@@ -20,13 +20,13 @@ use URI::Escape;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-# The Lite data file has no SetHeader properties, so it sets no response
-# headers, and it has no Javascript properties.
+# The Lite data file has the SetHeader properties, so the response header
+# tests run with any data file, but it has no Javascript properties.
 my $t_lite = !(scalar(@ARGV) > 0 && index($ARGV[0], "51Degrees-Lite") == -1);
 
 # No block above the locations has a match directive, so a location without
 # one makes no match of its own.
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan($t_lite ? 7 : 25)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan($t_lite ? 22 : 25)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 daemon off;
@@ -193,7 +193,7 @@ like($r, qr/^x-ismobile: False\r$/m,
 # Test the Accept-CH header from a request's own match.
 ###############################################################################
 
-if (!$t_lite) {
+{
 	# Firefox sends no client hints, so every SetHeader property of its match
 	# is Unknown.
 	$r = get('/match', 'User-Agent' => $firefox);
@@ -267,11 +267,13 @@ if (!$t_lite) {
 	$r = get('/append-empty', 'User-Agent' => $chrome);
 	is(accept_ch($r), $chromeHints,
 		'The hints for Chrome replace an empty upstream Accept-CH');
+}
 
 ###############################################################################
 # Test that a script reads its own request.
 ###############################################################################
 
+if (!$t_lite) {
 	# The override in the cookie shows that the script has already run. Each
 	# script follows a match on the worker which had the other answer.
 	my $cookie = '51D_ScreenPixelsWidth=12345';
@@ -294,11 +296,8 @@ if (!$t_lite) {
 ###############################################################################
 
 if ($t_lite) {
-	print "WARNING: Response header and script tests will not be run as the \n";
-	print "         Lite data file has no SetHeader or Javascript \n";
-	print "         properties. Please consider to obtain a data file that \n";
-	print "         has the SetHeaderBrowserAccept-CH, \n";
-	print "         SetHeaderHardwareAccept-CH, SetHeaderPlatformAccept-CH, \n";
-	print "         ScreenPixelsWidthJavascript and JavascriptHardwareProfile \n";
-	print "         properties.\n";
+	print "WARNING: Script tests will not be run as the Lite data file has \n";
+	print "         no Javascript properties. Please consider to obtain a \n";
+	print "         data file that has the ScreenPixelsWidthJavascript and \n";
+	print "         JavascriptHardwareProfile properties.\n";
 }
