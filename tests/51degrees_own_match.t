@@ -20,13 +20,13 @@ use URI::Escape;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-# The Lite data file has no SetHeader properties, so it sets no response
-# headers, and it has no Javascript properties.
+# The Lite data file has the SetHeader properties, so the response header
+# tests run with any data file, but it has no Javascript properties.
 my $t_lite = !(scalar(@ARGV) > 0 && index($ARGV[0], "51Degrees-Lite") == -1);
 
 # No block above the locations has a match directive, so a location without
 # one makes no match of its own.
-my $t = Test::Nginx->new()->has(qw/http proxy/)->plan($t_lite ? 7 : 23)
+my $t = Test::Nginx->new()->has(qw/http proxy/)->plan($t_lite ? 22 : 25)
 	->write_file_expand('nginx.conf', <<'EOF');
 
 daemon off;
@@ -90,6 +90,17 @@ http {
 			add_header Accept-CH Test1,Test2,Test3;
 		}
 
+		location /append-empty {
+			51D_set_resp_headers on;
+			51D_match_all x-browser BrowserName;
+			proxy_pass http://127.0.0.1:8080/accept-ch-empty;
+		}
+
+		# The value is a space, which the proxy reads as an empty value.
+		location /accept-ch-empty {
+			add_header Accept-CH " ";
+		}
+
 		location /js {
 			51D_set_resp_headers on;
 			51D_get_javascript_all ScreenPixelsWidthJavascript;
@@ -109,6 +120,7 @@ $t->write_file('match', '');
 $t->write_file('nomatch', '');
 $t->write_file('upstream', '');
 $t->write_file('accept-ch', '');
+$t->write_file('accept-ch-empty', '');
 $t->write_file('js', '');
 $t->write_file('js-single', '');
 
@@ -181,7 +193,7 @@ like($r, qr/^x-ismobile: False\r$/m,
 # Test the Accept-CH header from a request's own match.
 ###############################################################################
 
-if (!$t_lite) {
+{
 	# Firefox sends no client hints, so every SetHeader property of its match
 	# is Unknown.
 	$r = get('/match', 'User-Agent' => $firefox);
@@ -246,10 +258,22 @@ if (!$t_lite) {
 	is(accept_ch($r), "Test1,Test2,Test3,$chromeHints",
 		'The hints for Chrome are added to the upstream Accept-CH');
 
+	# An empty list is no list, so the hints are the whole value rather than
+	# following an empty part.
+	$r = get('/append-empty', 'User-Agent' => $firefox);
+	is(accept_ch($r), '',
+		'Nothing is added to an empty upstream Accept-CH for Firefox');
+
+	$r = get('/append-empty', 'User-Agent' => $chrome);
+	is(accept_ch($r), $chromeHints,
+		'The hints for Chrome replace an empty upstream Accept-CH');
+}
+
 ###############################################################################
 # Test that a script reads its own request.
 ###############################################################################
 
+if (!$t_lite) {
 	# The override in the cookie shows that the script has already run. Each
 	# script follows a match on the worker which had the other answer.
 	my $cookie = '51D_ScreenPixelsWidth=12345';
@@ -272,11 +296,8 @@ if (!$t_lite) {
 ###############################################################################
 
 if ($t_lite) {
-	print "WARNING: Response header and script tests will not be run as the \n";
-	print "         Lite data file has no SetHeader or Javascript \n";
-	print "         properties. Please consider to obtain a data file that \n";
-	print "         has the SetHeaderBrowserAccept-CH, \n";
-	print "         SetHeaderHardwareAccept-CH, SetHeaderPlatformAccept-CH, \n";
-	print "         ScreenPixelsWidthJavascript and JavascriptHardwareProfile \n";
-	print "         properties.\n";
+	print "WARNING: Script tests will not be run as the Lite data file has \n";
+	print "         no Javascript properties. Please consider to obtain a \n";
+	print "         data file that has the ScreenPixelsWidthJavascript and \n";
+	print "         JavascriptHardwareProfile properties.\n";
 }
