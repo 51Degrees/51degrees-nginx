@@ -2571,8 +2571,9 @@ static ngx_int_t getRespHeaderValue(
 /**
  * Add a response header from its SetHeader properties. If the response
  * already has the header then the value is added to the end of it, as the web
- * integration feature of the Pipeline specification describes. An empty value
- * adds nothing, as an empty list is sent as no header at all.
+ * integration feature of the Pipeline specification describes, or replaces it
+ * if it is empty. An empty value adds nothing, as an empty list is sent as no
+ * header at all.
  * @param r the current HTTP request.
  * @param fdmcf 51Degrees module main config.
  * @param header the response header to add.
@@ -2620,6 +2621,11 @@ static ngx_int_t addRespHeader(
 #if nginx_version >= 1023000
 		h->next = NULL;
 #endif
+	}
+	else if (h->value.len == 0) {
+		// An empty value is no list at all, so the value replaces it rather
+		// than following an empty part.
+		h->value = value;
 	}
 	else {
 		data = ngx_pnalloc(r->pool, h->value.len + 1 + value.len);
