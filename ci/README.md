@@ -30,6 +30,12 @@ The additional build options for this repo are:
 | `BuildMethod` | string | `dynamic` | Can be either `static` or `dynamic` to determine how the nginx module is built |
 | `FullTests` | bool | `false` | If true, then the full NGINX test suite is run. This should be set to true for the latest NGINX Plus version. |
 
+`select-options.ps1` chooses what a pull request runs. Every entry runs, and
+the full NGINX test suite only for a change in more than its comments outside
+the examples. Performance runs only when `rc` itself or the release pull
+request is built, which `.github/workflows/release-pull-request.yml` does on
+every entry.
+
 ## Prerequisites
 
 In addition to the [common prerequisites](https://github.com/51Degrees/common-ci#prerequisites), the following environment variables are required:
