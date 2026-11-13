@@ -1,0 +1,47 @@
+name: Temporary verbose run of the IP Intelligence bad data file test
+
+on:
+  push:
+    branches:
+      - tmp/verbose-452
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [tmp/red-452, fix/cxx-4.5.98]
+    steps:
+      - name: Clone
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          git clone --branch ${{ matrix.ref }} --recurse-submodules --shallow-submodules https://github.com/51Degrees/51degrees-nginx 51degrees-nginx
+          git -C 51degrees-nginx log -1 --format='module at %H %s'
+          git -C 51degrees-nginx/cxx log -1 --format='cxx at %H %s'
+      - name: Fetch the Asn data file as CI does
+        run: |
+          $global:LASTEXITCODE = 0
+          & ./51degrees-nginx/cxx/data/get-data-files.ps1 51Degrees-IPIV4AsnIpiV41.ipi
+          if ($LASTEXITCODE -ne 0) { throw "The Asn data file was not downloaded" }
+          Get-ChildItem 51degrees-nginx/cxx/data/ip-intelligence | Select-Object Name, Length
+      - name: Set up as CI does
+        run: ./51degrees-nginx/ci/setup-environment.ps1 -RepoName 51degrees-nginx -NginxVersion 1.29.3 -Name proof
+      - name: Build
+        run: |
+          Set-Location 51degrees-nginx
+          make DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=1.29.3 install 2>&1 | Select-Object -Last 6
+      - name: The bad data file test
+        if: ${{ !cancelled() }}
+        run: |
+          Set-Location 51degrees-nginx
+          make test-examples DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=1.29.3 EXAMPLE_TESTS="tests/examples/ipiBadDataFile.t"
