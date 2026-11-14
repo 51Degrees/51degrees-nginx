@@ -20,48 +20,56 @@
  * such notice(s) shall fulfill the requirements of that article.
  * ********************************************************************* */
 
-const {Builder, By} = require('selenium-webdriver');
+const {Builder, By, until} = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const firefox = require('selenium-webdriver/firefox');
 const edge = require('selenium-webdriver/edge');
 const path = require('path');
-const fs = require('fs');
 
-let cOpts = new chrome.Options();
-let ffOpts = new firefox.Options();
+const PageWaitMilliseconds = 10000;
+
 let eOpts = new edge.Options();
 
-async function cdnTest(driver) {
+// Opens index.html from a file, as the example says, and returns the width
+// the page shows once the example's /overrides has answered.
+async function shownWidth(driver) {
 	try {
-		let filePath =
+		const filePath =
 			path.resolve('../../../examples/hash/jsExample/index.html');
-		// Navigate to Url
 		await driver.get('file://' + filePath);
-		expect.stringMatching(/^\d+$/);
+		const value = await driver.wait(
+			until.elementLocated(By.id('widthvalue')), PageWaitMilliseconds);
+		return await value.getText();
 	}
 	finally {
 		await driver.quit();
 	}
 }
 
-// Check CDN example work as expected. The nginx is required to be
-// running with the example configuration file. Browsers and their
-// drivers also need to be installed to run these tests.
-describe('Javascript tests', () => { 
+// Check the JavaScript example works in a browser. NGINX must be running
+// with the example configuration and the TAC data file, and the browsers
+// and their drivers must be installed.
+describe('Javascript tests', () => {
+	// Chrome keeps no cookies for a page opened from a file, so /51D.js
+	// cannot pass the width on, and the page shows the value the data
+	// file holds for Chrome's User-Agent.
 	test('Javascript in Chrome', async () => {
 		let driver = await new Builder()
 			.forBrowser('chrome')
-			.setChromeOptions(cOpts.headless())
+			.setChromeOptions(new chrome.Options()
+				.addArguments('--headless=new', '--no-sandbox'))
 			.build();
-		await cdnTest(driver);
+		expect(await shownWidth(driver)).toMatch(/^(\d+|Unknown)$/);
 	}, 20000);
-	
+
+	// Firefox keeps the cookie /51D.js sets, so the page shows the
+	// browser's own screen width.
 	test('Javascript in Firefox', async () => {
 		let driver = await new Builder()
 			.forBrowser('firefox')
-			.setFirefoxOptions(ffOpts.headless())
+			.setFirefoxOptions(new firefox.Options().addArguments('-headless'))
 			.build();
-		await cdnTest(driver);
+		expect(await shownWidth(driver)).toMatch(/^\d+$/);
 	}, 20000);
 	
 	// Edge 108 is currently has issues starting in headless mode.

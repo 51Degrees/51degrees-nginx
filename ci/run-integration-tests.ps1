@@ -37,13 +37,7 @@ try {
         $env:PATH="$($env:PATH):$pwd/driver"
         npm install
         npx browserslist@latest --update-db
-        & {
-            $PSNativeCommandUseErrorActionPreference = $false
-            npm test
-        }
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host '::warning::CDN tests exited with 1, ignoring due to frequent false negatives'
-        }
+        npm test
     }
     finally {
         Pop-Location
