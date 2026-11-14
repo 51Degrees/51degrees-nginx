@@ -1,22 +1,15 @@
 #!/bin/bash
-# Example requests against the mixed example configuration
-# (examples/mixed/gettingStarted.conf) which loads both the device
-# detection and IP intelligence modules and serves the /mixed location.
+# Example requests against the Docker image that run.sh starts. Its
+# configuration, nginx.conf in this folder, loads the device detection module
+# and answers on /hash with the values in response headers.
 #
-# The device detection match uses the User-Agent and Sec-CH-UA-* headers.
-# The IP intelligence match uses the client IP address, and the IP address
-# supplied in the client_ip query argument. The query argument is needed
-# when running on a local machine, where the client IP address reported by
-# Nginx is a loopback address with no useful IP intelligence associated
-# with it.
-#
-# To use these requests with the single engine examples, change the path
-# to /hash (examples/hash/gettingStarted.conf) or /ipi
-# (examples/ipi/gettingStarted.conf).
+# The match uses the User-Agent and Sec-CH-UA-* headers, so the requests
+# show what the module makes of the same browser with and without client
+# hints. The IP Intelligence examples are in examples/ipi and examples/mixed.
 
 HOST=127.0.0.1:8080
 
-echo "=== Device detection: desktop browser with client hints ==="
+echo "=== Desktop browser with client hints ==="
 curl --head \
 	-H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.41' \
 	-H 'Sec-CH-UA: "Not.A/Brand";v="8","Chromium";v="114","Microsoft Edge";v="114"' \
@@ -28,12 +21,9 @@ curl --head \
 	-H 'Sec-CH-UA-Model: ' \
 	-H 'Sec-CH-UA-Platform: Windows' \
 	-H 'Sec-CH-UA-Platform-Version: 15.0.0' \
-	"http://$HOST/mixed"
+	"http://$HOST/hash"
 
-echo "=== IP intelligence: IP address in the client_ip query argument ==="
-curl --head "http://$HOST/mixed?client_ip=212.58.224.22"
-
-echo "=== Both engines: mobile browser and an IP address together ==="
+echo "=== Mobile browser ==="
 curl --head \
 	-H 'User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 7_1 like Mac OS X) AppleWebKit/537.51.2 (KHTML, like Gecko) Version/7.0 Mobile/11D167 Safari/9537.53' \
-	"http://$HOST/mixed?client_ip=212.58.224.22"
+	"http://$HOST/hash"
