@@ -67,15 +67,15 @@ is never downloaded.
 
 ### IP Intelligence data file
 
-The free `51Degrees-IPIV4AsnIpiV41.ipi` file contains the Asn properties (Asn and AsnName). This file is used by default for the IP Intelligence examples and tests. Download it in the same way.
+The free `51Degrees-LiteV41.ipi` file contains the registration properties (RegisteredCountry, RegisteredName and RegisteredOwner). This file is used by default for the IP Intelligence examples and tests. Download it in the same way.
 
 ```
-sh cxx/data/get-data-files.sh 51Degrees-IPIV4AsnIpiV41.ipi
+sh cxx/data/get-data-files.sh 51Degrees-LiteV41.ipi
 ```
 
-This saves the file as `cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi`.
+This saves the file as `cxx/data/ip-intelligence/51Degrees-LiteV41.ipi`.
 
-The same script downloads a free, 'lite' IP Intelligence data file, `51Degrees-LiteV41.ipi`, which has a different, reduced set of properties (RegisteredCountry, RegisteredName and RegisteredOwner). Note that the version of the downloaded data file must match the version expected by the IP Intelligence sources in the cxx sub-module, as with any 51Degrees data file. To obtain a file with the complete set of properties see the [51Degrees website](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=ip-intelligence-data-file).
+The same script downloads a second free IP Intelligence data file, `51Degrees-IPIV4AsnIpiV41.ipi`, which is far smaller and has the Asn properties (Asn and AsnName) instead. The performance test uses it. Note that the version of the downloaded data file must match the version expected by the IP Intelligence sources in the cxx sub-module, as with any 51Degrees data file. To obtain a file with the complete set of properties see the [51Degrees website](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=ip-intelligence-data-file).
 
 ## Quick start (Device Detection)
 
@@ -132,7 +132,7 @@ nginx -p . -s quit
 
 ## Quick start (IP Intelligence)
 
-IP Intelligence works in the same way, using its own module, data file and match directive. The following configuration sets a request header from the ASN name of the network of the client IP address, or of an IP address supplied as a query argument. The AsnName property is available in the free `51Degrees-IPIV4AsnIpiV41.ipi` file, which is downloaded as described in [Data files](#data-files). Data files with a fuller set of properties provide properties such as RegisteredName, RegisteredCountry and RegisteredOwner which can be requested in the same way.
+IP Intelligence works in the same way, using its own module, data file and match directive. The following configuration sets a request header from the registered name of the network of the client IP address, or of an IP address supplied as a query argument. The RegisteredName property is in the free `51Degrees-LiteV41.ipi` file, which is downloaded as described in [Data files](#data-files), with RegisteredCountry and RegisteredOwner. The free `51Degrees-IPIV4AsnIpiV41.ipi` file has AsnName and Asn instead, and the Enterprise file has every property, each requested in the same way.
 ```
 # Specify the module to load. Add an additional load_module line for the
 # device detection module to use both engines together.
@@ -149,17 +149,17 @@ http {
 
         location /test {
             # Perform a match using the client IP address.
-            # Set the request header 'x-asn' to the returned value for
-            # property 'AsnName'.
-            51D_match_ipi x-asn AsnName;
+            # Set the request header 'x-registered-name' to the returned
+            # value for property 'RegisteredName'.
+            51D_match_ipi x-registered-name RegisteredName;
 
             # Perform a match using the IP address supplied in the
             # 'client_ip' query argument.
-            51D_match_ipi x-asn-query AsnName $arg_client_ip;
+            51D_match_ipi x-registered-name-query RegisteredName $arg_client_ip;
 
             # Set the response headers using the request headers.
-            add_header x-asn $http_x_asn;
-            add_header x-asn-query $http_x_asn_query;
+            add_header x-registered-name $http_x_registered_name;
+            add_header x-registered-name-query $http_x_registered_name_query;
         }
     }
 }
@@ -363,9 +363,9 @@ make test 51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
 Note that when running NGINX itself the data file is always specified
 explicitly with the `51D_file_path` directive in the configuration file.
 
-The IP Intelligence tests resolve their data file in the same order. The `51DEGREES_IPI_PATH` environment variable provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/data/ip-intelligence` folder, it is deprecated and using it prints a make warning. When neither variable is set the free `51Degrees-IPIV4AsnIpiV41.ipi` file in that folder is used, which is downloaded as described in [Data files](#data-files). The IP Intelligence example tests are skipped when the file is not present. e.g.
+The IP Intelligence tests resolve their data file in the same order. The `51DEGREES_IPI_PATH` environment variable provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/data/ip-intelligence` folder, it is deprecated and using it prints a make warning. When neither variable is set the free `51Degrees-LiteV41.ipi` file in that folder is used, which is downloaded as described in [Data files](#data-files). The IP Intelligence example tests are skipped when the file is not present. e.g.
 ```
-make test-examples 51DEGREES_IPI_PATH=/path/to/51Degrees-IPIV4AsnIpiV41.ipi
+make test-examples 51DEGREES_IPI_PATH=/path/to/51Degrees-EnterpriseIpiV41.ipi
 ```
 
 ## Performance test

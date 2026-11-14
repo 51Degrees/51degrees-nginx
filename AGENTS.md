@@ -64,7 +64,7 @@ for the Lite file and `make test-examples` for both, so a fresh clone needs no
 step of its own. To fetch both before building, run the script yourself.
 
 ```
-sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-IPIV4AsnIpiV41.ipi
+sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-LiteV41.ipi
 ```
 
 The script keeps a file that is already there. A file named with
@@ -73,7 +73,7 @@ The script keeps a file that is already there. A file named with
 #### Check the files
 
 - `cxx/data/device-detection/51Degrees-LiteV4.1.hash` is more than 10 MB.
-- `cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi` is more than 1 MB.
+- `cxx/data/ip-intelligence/51Degrees-LiteV41.ipi` is more than 100 MB.
 
 ### Build
 
@@ -170,13 +170,13 @@ The IP Intelligence request answers with these lines, as
 ```
 HTTP/1.1 200 OK
 ...
-x-asn-query: \"BBC\":1
+x-registered-name-query: \"TODO-FROM-RUN\":1
 x-location-query: NoMatch,NoMatch,NoMatch
 x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=enterprise-data-file
 ...
 ```
 
-`x-asn` holds the answer for the address the request came from. IP
+`x-registered-name` holds the answer for the address the request came from. IP
 Intelligence values take the form `"value":weight`, with each double quote
 escaped by a backslash in the header. A property the data file does not have
 reads `NoMatch` in both modules (`FIFTYONE_DEGREES_PROPERTY_NOT_AVAILABLE` in
@@ -237,7 +237,7 @@ There are none. The nginx modules work only on-premise, with a data file.
 - **What CI tests.** CI builds with the paid `TAC-HashV41.hash`
   (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
   runs the example tests on it and again on the free Lite file, which a fresh
-  clone uses. `ci/fetch-assets.ps1` downloads the Lite and Asn files with the
+  clone uses. `ci/fetch-assets.ps1` downloads the two Lite files and the Asn file with the
   data repository's script, as the steps here do.
 
 ## Building the modules
