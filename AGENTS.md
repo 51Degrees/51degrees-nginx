@@ -170,7 +170,7 @@ The IP Intelligence request answers with these lines, as
 ```
 HTTP/1.1 200 OK
 ...
-x-registered-name-query: \"TODO-FROM-RUN\":1
+x-registered-name-query: \"UK-BBC-991005\":1
 x-location-query: NoMatch,NoMatch,NoMatch
 x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=enterprise-data-file
 ...
