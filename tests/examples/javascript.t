@@ -80,12 +80,12 @@ my $mobileUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 7_1 like Mac OS X) App
 my $js = get_with_ua('/51D.js', $mobileUserAgent);
 my $r = get_with_ua('/overrides', $mobileUserAgent);
 
-# ScreenPixelsWidth and ScreenPixelsWidthJavascript are only in the Enterprise
-# data file. On the free Lite data file there is no JavaScript, the width reads
-# NoMatch, and x-enterprise links to ask for a copy.
+# ScreenPixelsWidthJavascript is only in the Enterprise data file. On the free
+# Lite data file there is no JavaScript, the width is the one the file holds for
+# the User-Agent, and x-enterprise links to ask for a copy.
 if (index($ENV{TEST_FILE_PATH}, '51Degrees-Lite') != -1) {
 	like($js, qr/51Degrees Javascript not available/, 'No JavaScript without the Enterprise data file');
-	like($r, qr/x-screenpixelswidth: NoMatch\r/, 'Width needs the Enterprise data file');
+	like($r, qr/x-screenpixelswidth: [0-9]+\r/, 'Width from the User-Agent');
 	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
 	like($r, qr/Access-Control-Expose-Headers: \*/, 'The page can read the link');
 }
