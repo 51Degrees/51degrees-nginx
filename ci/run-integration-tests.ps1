@@ -27,6 +27,9 @@ try {
     if ($BuildMethod -eq 'static') {
         sed -i "/load_module/d" build/nginx.conf
     }
+    # The example's instructions create a static file for /overrides, without
+    # which NGINX answers 404 with none of the headers the page reads.
+    New-Item -ItemType File -Force build/html/overrides | Out-Null
     # Start NGINX
     ./nginx
 
