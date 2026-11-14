@@ -34,7 +34,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(5);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(6);
 
 my $t_file = read_example('matchMetrics.conf');
 # Remove documentation block
@@ -79,6 +79,7 @@ my $r = get_with_ua('/metrics', $mobileUserAgent);
 like($r, qr/x-metrics: \d+,\d+,PREDICTIVE,\d+/, 'Match metrics');
 like($r, qr/x-user-agents: (?!NA$).*/, 'Matched user agents string');
 like($r, qr/x-device-id: \d+-\d+-\d+-\d+/, 'Device ID');
+like($r, qr/x-mobile: True/, 'Mobile match');
 
 # The hardware properties are only in the Enterprise data file. On the free
 # Lite data file they read NoMatch, and x-enterprise links to ask for a copy.
