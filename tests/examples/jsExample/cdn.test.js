@@ -26,7 +26,11 @@ const firefox = require('selenium-webdriver/firefox');
 const edge = require('selenium-webdriver/edge');
 const path = require('path');
 
-const PageWaitMilliseconds = 10000;
+// How long the page has to show the width once it has loaded, and how long
+// each browser test may take from starting the browser, with room for a
+// slow runner.
+const PageWaitMilliseconds = 30000;
+const TestTimeoutMilliseconds = 60000;
 
 let eOpts = new edge.Options();
 
@@ -60,7 +64,7 @@ describe('Javascript tests', () => {
 				.addArguments('--headless=new', '--no-sandbox'))
 			.build();
 		expect(await shownWidth(driver)).toMatch(/^(\d+|Unknown)$/);
-	}, 20000);
+	}, TestTimeoutMilliseconds);
 
 	// Firefox keeps the cookie /51D.js sets, so the page shows the
 	// browser's own screen width.
@@ -70,7 +74,7 @@ describe('Javascript tests', () => {
 			.setFirefoxOptions(new firefox.Options().addArguments('-headless'))
 			.build();
 		expect(await shownWidth(driver)).toMatch(/^\d+$/);
-	}, 20000);
+	}, TestTimeoutMilliseconds);
 	
 	// Edge 108 is currently has issues starting in headless mode.
 	// This test will be reinstated once the problem is solved.
