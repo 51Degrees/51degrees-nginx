@@ -1,0 +1,45 @@
+name: Temporary red and green runs of a fresh clone without data files
+
+on:
+  push:
+    branches:
+      - tmp/verbose-data
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  fresh-clone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [rc, feature/download-data-files]
+    steps:
+      - name: Clone, with no data file downloaded
+        run: |
+          git clone --branch ${{ matrix.ref }} --recurse-submodules --shallow-submodules https://github.com/51Degrees/51degrees-nginx n
+          git -C n log -1 --format='module at %H %s'
+          Get-ChildItem n/cxx/data/device-detection, n/cxx/data/ip-intelligence -Filter '51Degrees-*' | Select-Object Name, Length
+      - name: Set up as CI does
+        run: ./n/ci/setup-environment.ps1 -RepoName n -NginxVersion 1.29.3 -Name fresh
+      - name: make install
+        run: |
+          Set-Location n
+          make FIFTYONEDEGREES_NGINX_VERSION=1.29.3 install 2>&1 | Select-Object -Last 4
+          Get-ChildItem cxx/data/device-detection, cxx/data/ip-intelligence -Filter '51Degrees-*' | Select-Object Name, Length
+      - name: The getting started example starts
+        if: ${{ !cancelled() }}
+        run: |
+          Set-Location n
+          ./nginx -t
+      - name: The IP Intelligence getting started example test
+        if: ${{ !cancelled() }}
+        run: |
+          Set-Location n
+          make test-examples DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=1.29.3 EXAMPLE_TESTS="tests/examples/ipiGettingStarted.t"
