@@ -1,0 +1,38 @@
+name: Temporary fresh clone make install with the default NGINX version
+
+on:
+  push:
+    branches:
+      - tmp/default-nginx
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { ref: rc, image: ubuntu-26.04 }
+          - { ref: fix/default-nginx-version, image: ubuntu-26.04 }
+          - { ref: fix/default-nginx-version, image: ubuntu-24.04 }
+    runs-on: ${{ matrix.image }}
+    timeout-minutes: 30
+    steps:
+      - name: Build tools the README lists
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y make zlib1g-dev libpcre2-dev libatomic1
+          dpkg -l | grep -E "libpcre3-dev|libpcre2-dev" || true
+      - name: Fresh clone
+        run: |
+          git clone --branch ${{ matrix.ref }} --recurse-submodules --shallow-submodules --depth 1 https://github.com/51Degrees/51degrees-nginx 51degrees-nginx
+          git -C 51degrees-nginx log -1 --format='%h %s'
+      - name: make install
+        run: |
+          cd 51degrees-nginx
+          set -o pipefail
+          make install 2>&1 | tail -25
+      - name: The NGINX built
+        run: ./51degrees-nginx/nginx -V 2>&1 | head -2
