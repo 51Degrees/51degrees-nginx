@@ -30,6 +30,21 @@ try {
     if ($FullTests -eq $True) {
         $env:ALLOW_PASSING_TODOS = 'yep' # don't consider Nginx's todo tests as failures
 
+        # upstream_sticky_learn.t gives the old worker 6 seconds to exit after
+        # a reload, which a GitHub runner does not always manage, with the
+        # module loaded or not, so both full runs give it 30 seconds.
+        $sticky = 'tests/nginx-tests/upstream_sticky_learn.t'
+        $wait = 'for (1 .. 30) {' + "`n`t`t" +
+            'return 1 if $t->read_file(''error.log'') =~ /exited with code/;'
+        $text = (Test-Path $sticky) ? (Get-Content -Raw $sticky) : ''
+        if ($text.Contains($wait)) {
+            Set-Content -NoNewline -Path $sticky `
+                -Value $text.Replace($wait, $wait.Replace('(1 .. 30)', '(1 .. 150)'))
+            Write-Host "The reload in $sticky waits up to 30 seconds"
+        } else {
+            Write-Host "::warning::The reload wait in $sticky has changed, so it is left as it is"
+        }
+
         # If full tests are requested, then run the full test suite (NGINX core tests, with the module enabled)
         Write-Host "Running full NGINX unit tests"
         make test-full DONT_CLEAN_TESTS=1 "51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Full.xml || $($failed = $true)
