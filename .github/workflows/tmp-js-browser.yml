@@ -1,0 +1,40 @@
+name: Temporary red and green runs of the JavaScript browser test
+
+on:
+  push:
+    branches:
+      - tmp/js-red
+      - tmp/js-green
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: 51degrees-nginx
+          submodules: recursive
+      - name: Common CI steps
+        run: |
+          git clone --depth 1 https://github.com/51Degrees/common-ci common-ci
+          Copy-Item -Recurse common-ci/steps steps
+          git -C 51degrees-nginx log -3 --format='%h %s'
+      - name: Fetch assets as CI does
+        env:
+          DD_KEY: ${{ secrets.DEVICE_DETECTION_KEY }}
+          DD_URL: ${{ secrets.DEVICE_DETECTION_URL }}
+        run: ./51degrees-nginx/ci/fetch-assets.ps1 -DeviceDetection $env:DD_KEY -DeviceDetectionUrl $env:DD_URL
+      - name: Set up as CI does
+        run: ./51degrees-nginx/ci/setup-environment.ps1 -RepoName 51degrees-nginx -NginxVersion 1.29.3 -Name js
+      - name: Build as CI does
+        run: ./51degrees-nginx/ci/build-project.ps1 -NginxVersion 1.29.3 -Name js
+      - name: Integration tests as CI runs them
+        run: ./51degrees-nginx/ci/run-integration-tests.ps1 -NginxVersion 1.29.3 -Name js
