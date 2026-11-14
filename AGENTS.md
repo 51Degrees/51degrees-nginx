@@ -128,6 +128,15 @@ network to report. `API=mixed` works in the same way for
 `/mixed`. The request it documents is
 `curl "localhost:8080/mixed?client_ip=212.58.224.22" -I -A "<the User-Agent above>"`.
 
+The other Device Detection examples run in the same way with `EXAMPLE`, which
+names the example in `examples/hash` that `make install` writes as
+`build/nginx.conf`. `make install EXAMPLE=config` writes
+`examples/hash/config.conf` and creates `build/html/config`, which it serves
+at `/config`. `EXAMPLE=matchMetrics` answers at `/metrics`,
+`EXAMPLE=matchQuery` at `/query?user_agent=<a User-Agent>`, and
+`EXAMPLE=responseHeaders/responseHeader` at `/response.html`. Each example's
+comment gives its request.
+
 On macOS, or anywhere Docker runs, the curl example builds the module in a
 Debian image.
 
