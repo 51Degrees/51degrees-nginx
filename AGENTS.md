@@ -76,12 +76,12 @@ The script keeps a file that is already there.
 ### Build
 
 ```
-make install FIFTYONEDEGREES_NGINX_VERSION=1.29.3
+make install
 ```
 
-1.29.3 is the nginx version of the first entry in `ci/options.json`, which CI
-builds and tests. Without the variable the Makefile builds nginx 1.20.0, which
-CI no longer builds. The build downloads the nginx source into `vendor`, builds
+The Makefile builds nginx 1.29.3, the version of the first entry in
+`ci/options.json`, which CI builds and tests. `FIFTYONEDEGREES_NGINX_VERSION`
+builds another version. The build downloads the nginx source into `vendor`, builds
 both modules into `build/modules`, puts the nginx program at `./nginx`, writes
 `build/nginx.conf` from `examples/hash/gettingStarted.conf`, and creates the
 empty file `build/html/hash` that the example serves.
@@ -113,7 +113,7 @@ For IP Intelligence, build again with `API=ipi`, which writes
 `build` and `./nginx`.
 
 ```
-make install API=ipi FIFTYONEDEGREES_NGINX_VERSION=1.29.3
+make install API=ipi
 ./nginx
 curl "localhost:8080/ipi?client_ip=212.58.224.22" -I
 ./nginx -s quit
@@ -207,9 +207,9 @@ There are none. The nginx modules work only on-premise, with a data file.
 - **Missing submodules.** `make install` then stops at its first
   `cp cxx/src/...`, because the module sources come from the `cxx` submodule.
   A zip download of the repository has no submodules, so clone with Git.
-- **The nginx version.** Plain `make install` builds nginx 1.20.0. Give
-  `FIFTYONEDEGREES_NGINX_VERSION` as "Build" shows, so that you build a
-  version CI tests.
+- **The nginx version.** nginx before 1.21.5 needs PCRE1 (`libpcre3-dev`),
+  which Ubuntu 26.04 does not have, so `FIFTYONEDEGREES_NGINX_VERSION` set to
+  an older version fails there at nginx's `configure`.
 - **Linux only.** The Makefile uses GNU `sed -i` and links `-latomic`, and the
   README says only Linux is supported. Use WSL on Windows and Docker on macOS.
 - **Windows line endings.** This repository's `.gitattributes` keeps LF line

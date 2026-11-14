@@ -282,8 +282,7 @@ To build the 51Degrees module, the following libraries are required.
 - C compiler that support C11 or above.
 - make
 - zlib1g-dev
-- libpcre3
-- libpcre3-dev
+- libpcre2-dev, which NGINX reads from 1.21.5. NGINX before 1.21.5 reads only PCRE1 (`libpcre3-dev`), which Ubuntu 26.04 does not have.
 - libatomic
 
 To build the modules only, run the following command. This will output `ngx_http_51D_module.so` and `ngx_http_51D_ipi_module.so` in the `build/modules` directory.
@@ -296,7 +295,7 @@ To build the modules and NGINX, run the following command.
 ```
 make install
 ```
-By default this will use the latest version of NGINX specified in the Makefile. To use a specific version of NGINX, run the above command with `FIFTYONEDEGREES_NGINX_VERSION` variable. e.g.
+By default this builds NGINX 1.29.3, the newest version CI builds and tests. To build another version of NGINX, run the above command with the `FIFTYONEDEGREES_NGINX_VERSION` variable, for example.
 ```
 make install FIFTYONEDEGREES_NGINX_VERSION=[Version]
 ```
