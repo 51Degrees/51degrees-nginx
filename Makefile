@@ -57,6 +57,20 @@ ifdef 51DEGREES_IPI_PATH
 	DATAFILE_IPI := $(notdir $(51DEGREES_IPI_PATH))
 endif
 
+# A fresh clone has no data files. When the file in use is the free one the
+# examples name by default and it is missing, the data repository's script
+# downloads it. A file named any other way is never downloaded.
+DEFAULT_FILEPATH := $(FULLPATH)/cxx/data/device-detection/51Degrees-LiteV4.1.hash
+DEFAULT_FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi
+GET_DATA_FILES := sh $(FULLPATH)/cxx/data/get-data-files.sh -s examples-51degrees-nginx
+ifeq ($(API),ipi)
+	INSTALL_DATA := data-file-ipi
+else ifeq ($(API),mixed)
+	INSTALL_DATA := data-file-dd data-file-ipi
+else
+	INSTALL_DATA := data-file-dd
+endif
+
 
 # For dynamic builds, both the device detection and IP intelligence modules
 # are built. For static builds, only the module selected by the API variable
@@ -197,7 +211,19 @@ configure-no-module: clean
 	--conf-path="nginx.conf" \
 	--with-http_sub_module
 
-install: configure
+.PHONY: data-file-dd data-file-ipi
+
+data-file-dd:
+ifeq ($(FILEPATH),$(DEFAULT_FILEPATH))
+	@[ -f "$(FILEPATH)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH))
+endif
+
+data-file-ipi:
+ifeq ($(FILEPATH_IPI),$(DEFAULT_FILEPATH_IPI))
+	@[ -f "$(FILEPATH_IPI)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH_IPI))
+endif
+
+install: $(INSTALL_DATA) configure
 	cd $(CURDIR)/vendor/nginx-$(VERSION) && make install
 	sed "/\/\*\*/,/\*\//d" examples/$(API)/gettingStarted.conf > build/nginx.conf
 	sed -i "s!%%DAEMON_MODE%%!on!g" build/nginx.conf
@@ -246,7 +272,7 @@ test-prep:
 test-full:
 	$(MAKE) test TESTS="$(TESTS) tests/nginx-tests"
 
-test-examples: test-prep
+test-examples: test-prep data-file-dd data-file-ipi
 ifeq (,$(wildcard $(FULLPATH)/nginx))
 	$(error Local binary must be built first (use "make install"))
 else
@@ -258,7 +284,7 @@ else
 endif
 endif
 
-test: test-prep
+test: test-prep data-file-dd
 ifeq (,$(wildcard $(FULLPATH)/nginx))
 	$(error Local binary must be built first (use "make install"))
 else
