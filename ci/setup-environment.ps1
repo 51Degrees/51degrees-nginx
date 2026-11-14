@@ -85,15 +85,17 @@ if ($FullTests -eq $True) {
     Write-Output "Certificate expiration date:"
     openssl x509 -enddate -noout -in /etc/ssl/nginx/nginx-repo.crt
 
-    Write-Output "Download and add NGINX signing key and App-protect security updates signing key:"
-    curl -O https://nginx.org/keys/nginx_signing.key && sudo apt-key add ./nginx_signing.key
-
     Write-Output "Install apt utils"
-    sudo apt-get install apt-transport-https lsb-release ca-certificates wget gnupg2 ubuntu-keyring
+    sudo apt-get install apt-transport-https lsb-release ca-certificates wget gnupg2 ubuntu-keyring -y
+
+    # The keyring file is the one the repository line names in signed-by.
+    # apt-key, which older steps used, is not in Ubuntu 26.04.
+    Write-Output "Download the NGINX signing key into the keyring the repository names"
+    curl -fsSLO https://cs.nginx.com/static/keys/nginx_signing.key
+    sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg ./nginx_signing.key
 
     Write-Output "Add Nginx Plus repository"
-    # Add allow-insecure because there is an issue with the signing of the NGINX Plus repository.
-    printf "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg allow-insecure=yes] https://pkgs.nginx.com/plus/ubuntu $(lsb_release -cs) nginx-plus\n" | sudo tee /etc/apt/sources.list.d/nginx-plus.list
+    printf "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] https://pkgs.nginx.com/plus/ubuntu $(lsb_release -cs) nginx-plus\n" | sudo tee /etc/apt/sources.list.d/nginx-plus.list
 
     Write-Output "Download nginx-plus apt configuration files to /etc/apt/apt.conf.d"
     sudo wget -P /etc/apt/apt.conf.d https://cs.nginx.com/static/files/90pkgs-nginx
@@ -101,7 +103,7 @@ if ($FullTests -eq $True) {
     Write-Output "Update the repository and install Nginx Plus"
     sudo apt-get update
     $packageVersion = ((apt-cache show nginx-plus | Select-String -CaseSensitive '^Version: ') -replace 'Version: ' -clike "$NginxPlusVersion-*")[0]
-    sudo apt-get install nginx-plus=$packageVersion -y --allow-unauthenticated
+    sudo apt-get install nginx-plus=$packageVersion -y
 
     Write-Output "Check if installation was successful"
     /usr/sbin/nginx -v 2>&1 | grep -F $NginxVersion || $(throw "Failed to install Nginx Plus $NginxVersion")
@@ -111,9 +113,10 @@ Write-Output "Install Apache dev for performance tests"
 sudo apt-get update -y
 sudo apt-get install cmake apache2-dev libapr1-dev libaprutil1-dev -y
 
-# Install any extra requirements for the module
+# Install any extra requirements for the module. NGINX reads PCRE2 from
+# 1.21.5, and Ubuntu 26.04 has no PCRE1 (libpcre3).
 Write-Output "Installing NGINX dependencies"
-sudo apt-get install make zlib1g-dev libpcre3 libpcre3-dev
+sudo apt-get install make zlib1g-dev libpcre2-dev -y
 
 # Install perl libraries
 Write-Output 'Install perl libraries for test output formatters'
