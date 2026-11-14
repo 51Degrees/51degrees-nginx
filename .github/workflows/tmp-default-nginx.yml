@@ -14,9 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { ref: rc, image: ubuntu-26.04 }
-          - { ref: fix/default-nginx-version, image: ubuntu-26.04 }
-          - { ref: fix/default-nginx-version, image: ubuntu-24.04 }
+          - { ref: tmp/default-green, image: ubuntu-26.04 }
     runs-on: ${{ matrix.image }}
     timeout-minutes: 30
     steps:
