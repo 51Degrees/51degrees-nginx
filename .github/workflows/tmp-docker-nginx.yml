@@ -1,0 +1,55 @@
+name: Temporary check of the Docker example
+
+on:
+  push:
+    branches:
+      - tmp/docker-nginx
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [rc, fix/docker-example]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.ref }}
+      - name: Build the image from the same branch
+        working-directory: examples/curl
+        run: docker build --build-arg BRANCH=${{ matrix.ref }} -t 51d-nginx-curl . 2>&1 | tail -5
+      - name: Report the NGINX version in the image
+        run: docker run --rm 51d-nginx-curl /app/nginx -v
+      - name: Run the image as run.sh does
+        run: docker run -d -p 8080:8080 --name curl-example 51d-nginx-curl
+      - name: Wait for the example to answer
+        run: |
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null "http://127.0.0.1:8080/hash"; then
+              echo "Answered after $i tries"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "No answer after 120 seconds"
+          exit 1
+      - name: Run curl.sh
+        if: ${{ !cancelled() }}
+        working-directory: examples/curl
+        run: |
+          sh ./curl.sh | tee curl-sh.txt
+          test "$(grep -c '^HTTP/1.1 200 OK' curl-sh.txt)" = "$(grep -c '^HTTP/' curl-sh.txt)"
+          grep -i 'x-is-mobile: True' curl-sh.txt
+          grep -i 'x-enterprise: .*contact-us' curl-sh.txt
+      - name: Run curl.php
+        if: ${{ !cancelled() }}
+        working-directory: examples/curl
+        run: |
+          php curl.php | tee curl-php.txt
+          test "$(grep -c '^HTTP/1.1 200 OK' curl-php.txt)" = "$(grep -c '^HTTP/' curl-php.txt)"
+          grep -i 'x-is-mobile: True' curl-php.txt
+      - name: Show the container's log
+        if: always()
+        run: docker logs curl-example 2>&1 | tail -30 || true
