@@ -50,6 +50,10 @@ $t_file =~ s/51D_file_path [^;]+;/51D_file_path $ENV{TEST_FILE_PATH};/;
 $t_file =~ s/listen 8888;/listen 127.0.0.1:8080;/;
 $t->write_file_expand('nginx.conf', $t_file);
 
+# The example's instructions create a static file for /overrides, without
+# which NGINX answers 404 and adds none of the headers.
+$t->write_file('overrides', '');
+
 $t->run();
 
 sub get_with_ua {
