@@ -1,0 +1,43 @@
+name: Temporary list of compiler warnings on Ubuntu 26.04
+
+on:
+  push:
+    branches:
+      - tmp/warn-26
+
+permissions:
+  contents: read
+
+jobs:
+  warnings:
+    strategy:
+      fail-fast: false
+      matrix:
+        nginx: [1.29.3, 1.29.0, 1.27.4, 1.27.2]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y make zlib1g-dev libpcre2-dev libatomic1
+          gcc --version | head -1
+          ldd --version | head -1
+      - name: Build with warnings not treated as errors
+        run: |
+          ARGS="-std=gnu11 -Wall -Wno-unused-variable -Wno-missing-braces -Wno-type-limits -Wno-unused-function -Wno-missing-field-initializers -Wno-unused-but-set-variable -Wno-error"
+          make install FIFTYONEDEGREES_NGINX_VERSION=${{ matrix.nginx }} ARGS="$ARGS" > build.log 2>&1 || { tail -40 build.log; exit 1; }
+          echo "WARNINGS"
+          grep -E "warning:|error:" build.log | sed -E "s#$PWD/##" | sort | uniq -c
+          echo "END"
+      - name: Static build of each module
+        run: |
+          ARGS="-std=gnu11 -Wall -Wno-unused-variable -Wno-missing-braces -Wno-type-limits -Wno-unused-function -Wno-missing-field-initializers -Wno-unused-but-set-variable -Wno-error"
+          for api in hash ipi; do
+            make install STATIC_BUILD=1 API=$api FIFTYONEDEGREES_NGINX_VERSION=${{ matrix.nginx }} ARGS="$ARGS" > static-$api.log 2>&1 || { tail -40 static-$api.log; exit 1; }
+            echo "STATIC $api WARNINGS"
+            grep -E "warning:|error:" static-$api.log | sed -E "s#$PWD/##" | sort | uniq -c
+          done
