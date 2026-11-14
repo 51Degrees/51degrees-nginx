@@ -35,8 +35,10 @@ On Ubuntu, CI installs the build tools with this command, on runners that
 already have gcc.
 
 ```
-sudo apt-get install make zlib1g-dev libpcre3 libpcre3-dev
+sudo apt-get install make zlib1g-dev libpcre2-dev
 ```
+
+NGINX reads PCRE2 from 1.21.5, and Ubuntu 26.04 has no PCRE1 (`libpcre3`).
 
 Clone the repository with its submodules.
 
