@@ -1396,7 +1396,8 @@ set_data(
 	ngx_str_t *value,
 	ngx_http_51D_ipi_main_conf_t *fdmcf)
 {
-	char *tok, *tokPos = NULL, *saveptr = NULL;
+	char *tok, *saveptr = NULL;
+	const char *tokPos = NULL;
 	int propertiesCount, charPos;
 	char *propertiesString;
 
