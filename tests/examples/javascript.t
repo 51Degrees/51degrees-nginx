@@ -87,13 +87,13 @@ if (index($ENV{TEST_FILE_PATH}, '51Degrees-Lite') != -1) {
 	like($js, qr/51Degrees Javascript not available/, 'No JavaScript without the Enterprise data file');
 	like($r, qr/x-screenpixelswidth: [0-9]+\r/, 'Width from the User-Agent');
 	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
-	like($r, qr/Access-Control-Expose-Headers: \*/, 'The page can read the link');
+	like($r, qr/Access-Control-Allow-Headers: \*\r\n.*Access-Control-Expose-Headers: \*/s, 'The page can read the link');
 }
 else {
 	unlike($js, qr/51Degrees Javascript not available/, 'JavaScript returned');
 	unlike($r, qr/x-screenpixelswidth: NoMatch/, 'Width matched');
 	unlike($r, qr/x-enterprise:/, 'No link with the Enterprise data file');
-	like($r, qr/Access-Control-Expose-Headers: \*/, 'The page can read the headers');
+	like($r, qr/Access-Control-Allow-Headers: \*\r\n.*Access-Control-Expose-Headers: \*/s, 'The page can read the headers');
 }
 
 ###############################################################################
