@@ -1,0 +1,27 @@
+name: Temporary full build of pull request 489
+
+on:
+  push:
+    branches:
+      - 'tmp/pr-matrix-489b'
+
+jobs:
+  Build:
+    uses: 51Degrees/common-ci/.github/workflows/nightly-pull-request.yml@main
+    with:
+      repo-name: 51degrees-nginx
+      org-name: 51Degrees
+      pull-request-id: 489
+      dryrun: 'true'
+      branch: rc
+      fail-fast: false
+      skip-compare-performance: true
+      full-matrix: true
+      common-ci-ref: tmp/no-macos
+    secrets:
+      token: ${{ secrets.ACCESS_TOKEN }}
+      DeviceDetection: ${{ secrets.DEVICE_DETECTION_KEY }}
+      DeviceDetectionUrl: ${{ secrets.DEVICE_DETECTION_URL }}
+      NginxKey: ${{ secrets.NGINX_PLUS_KEY }}
+      NginxCert: ${{ secrets.NGINX_PLUS_CERT }}
+      NginxJwtToken: ${{ secrets.NGINX_PLUS_JWT_TOKEN }}
