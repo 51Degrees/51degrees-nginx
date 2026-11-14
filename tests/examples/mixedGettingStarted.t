@@ -121,9 +121,9 @@ my $knownIp = '212.58.224.22';
 
 my $r = get_with_ua('/mixed?client_ip=' . $knownIp, $mobileUserAgent);
 like($r, qr/x-mobile: True/, 'Mobile match (device detection)');
-like($r, qr/x-asn: .+/, 'ASN name set (client IP)');
-like($r, qr/x-asn-query: .+/, 'ASN name set (query IP)');
-unlike($r, qr/x-asn-query: (NoMatch)?\r/, 'Query IP matched');
+like($r, qr/x-registered-name: .+/, 'Registered name set (client IP)');
+like($r, qr/x-registered-name-query: .+/, 'Registered name set (query IP)');
+unlike($r, qr/x-registered-name-query: (NoMatch)?\r/, 'Query IP matched');
 
 # The hardware and location properties are only in the Enterprise data
 # files. On a free data file they read NoMatch, and x-enterprise links to ask
