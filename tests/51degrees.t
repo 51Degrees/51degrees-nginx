@@ -24,16 +24,20 @@ use URI::Escape;
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $n = 30;
+my $n = 35;
 my $t_lite = 1;
 
 # The Lite data file version does not contains properties that can be used
 # to test the overrides feature. Please consider to use one that have at least
 # ScreenPixelsWidth and ScreenPixelsWidthJavascript properties
 if (scalar(@ARGV) > 0 && index($ARGV[0], "51Degrees-Lite") == -1) {
-	$n += 28;
+	$n += 30;
 	$t_lite = 0;
 }
+
+# Client hints matches with a User-Agent from a variable. Two of them need the
+# hardware properties, which the Lite data file does not have.
+$n += $t_lite ? 3 : 5;
 
 my $t = Test::Nginx->new()->has(qw/http/)->plan($n)
 	->write_file_expand('nginx.conf', <<'EOF');
@@ -172,6 +176,13 @@ http {
 			add_header x-ismobile-from-wrong-var $http_x_ismobile_from_wrong_var;
 		}
 
+		location /ua_uach_variable {
+			51D_match_ua_client_hints x-ismobile IsMobile $arg_ua;
+			51D_match_ua_client_hints x-hardware-model HardwareModel $arg_ua;
+			add_header x-ismobile $http_x_ismobile;
+			add_header x-hardware-model $http_x_hardware_model;
+		}
+
 		location /overrides {
 			51D_match_all x-javascript ScreenPixelsWidthJavascript;
 			51D_match_all x-screenpixelswidth ScreenPixelsWidth;
@@ -244,6 +255,7 @@ $t->write_file('non-property', '');
 $t->write_file('redirect', '');
 $t->write_file('locations', '');
 $t->write_file('variable', '');
+$t->write_file('ua_uach_variable', '');
 $t->write_file('overrides', '');
 $t->write_file('overrides-ua', '');
 $t->write_file('overrides-ua-variable', '');
@@ -316,8 +328,12 @@ X-OperaMini-Phone-UA: $ua
 EOF
 }
 
+# An empty platform version leaves that hint out of the request.
 sub get_with_client_hints {
-	my ($uri) = @_;
+	my ($uri, $platformVersion) = @_;
+	$platformVersion = '"13.0.0"' if !defined $platformVersion;
+	my $versionHint = $platformVersion eq '' ? '' :
+		"sec-ch-ua-platform-version: $platformVersion\n";
 	return http(<<EOF);
 HEAD $uri HTTP/1.1
 Host: localhost
@@ -326,8 +342,7 @@ user-agent: Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like G
 sec-ch-ua-platform: "Android"
 sec-ch-ua-model: "SM-S918B"
 sec-ch-ua-mobile: ?1
-sec-ch-ua-platform-version: "13.0.0"
-sec-ch-ua-full-version-list: "Google Chrome";v="117.0.5938.60", "Not;A=Brand";v="8.0.0.0", "Chromium";v="117.0.5938.60"
+${versionHint}sec-ch-ua-full-version-list: "Google Chrome";v="117.0.5938.60", "Not;A=Brand";v="8.0.0.0", "Chromium";v="117.0.5938.60"
 sec-ch-ua: "Google Chrome";v="117", "Not;A=Brand";v="8", "Chromium";v="117"
 
 EOF
@@ -477,6 +492,48 @@ if (!$t_lite) {
 }
 
 ###############################################################################
+# Test the header length limit.
+###############################################################################
+
+sub padded {
+	my ($value, $length) = @_;
+	return $value . ('x' x ($length - length($value)));
+}
+
+# The headers set from a response, so that two answers can be compared.
+sub answers {
+	my ($response) = @_;
+	return join("\n", grep { /^x-/ } split(/\r\n/, $response));
+}
+
+# A header over 500 bytes is ignored and nothing is logged, so the answer is the
+# same as for a request without the header.
+my $logStart = length($t->read_file('error.log'));
+
+foreach my $uri ('/ua', '/all') {
+	$r = get_with_ua($uri, padded($mobileUserAgent, 500));
+	like($r, qr/x-ismobile: True/, "User-Agent of 500 bytes is used ($uri)");
+	is(answers(get_with_ua($uri, padded($mobileUserAgent, 501))),
+		answers(http_get($uri)),
+		"User-Agent of 501 bytes is ignored ($uri)");
+}
+
+# The data file reads the platform and its version as one pseudo header, with a
+# one byte separator. The 9 bytes of "Android" and a version of 490 bytes make
+# 500, and neither hint is over the limit on its own.
+if (!$t_lite) {
+	$r = get_with_client_hints('/all', padded('"13.0.0"', 490));
+	like($r, qr/x-platform-version: 13\.0/, 'Pseudo header of 500 bytes is used');
+	is(answers(get_with_client_hints('/all', padded('"13.0.0"', 491))),
+		answers(get_with_client_hints('/all', '')),
+		'Pseudo header of 501 bytes is ignored');
+}
+
+unlike(substr($t->read_file('error.log'), $logStart),
+	qr/\[(error|crit|alert|emerg)\].*51Degrees/,
+	'Nothing is logged for a header that is ignored');
+
+###############################################################################
 # test the reload functionality.
 ###############################################################################
 
@@ -541,6 +598,52 @@ like($r, qr/x-ismobile-from-wrong-var: False/, 'Match single from parameter with
 # Match all with a parameter passed from the config.
 $r = get_with_ua('/all?User-Agent='.uri_escape($mobileUserAgent), $desktopUserAgent);
 like($r, qr/x-ismobile: True/, 'Match all from parameter');
+
+###############################################################################
+# Test client hints matching with a User-Agent from a variable.
+###############################################################################
+
+# The User-Agent in the variable takes the place of the User-Agent header and
+# is matched with the client hints in the headers. A variable with no value
+# supplies no User-Agent, so the header's is used.
+$r = get_with_ua('/ua_uach_variable?ua='.uri_escape($mobileUserAgent),
+	$desktopUserAgent);
+like($r, qr/x-ismobile: True/, 'Client hints match from a variable');
+$r = get_with_ua('/ua_uach_variable', $mobileUserAgent);
+like($r, qr/x-ismobile: True/,
+	'Client hints match with a missing variable uses the header');
+$r = get_with_ua('/ua_uach_variable?ua=', $mobileUserAgent);
+like($r, qr/x-ismobile: True/,
+	'Client hints match with a blank variable uses the header');
+
+sub get_with_client_hints_and_ua {
+	my ($uri, $ua) = @_;
+	return http(<<EOF);
+HEAD $uri HTTP/1.1
+Host: localhost
+Connection: close
+user-agent: $ua
+sec-ch-ua-platform: "Android"
+sec-ch-ua-model: "SM-S918B"
+sec-ch-ua-mobile: ?1
+sec-ch-ua-platform-version: "13.0.0"
+sec-ch-ua-full-version-list: "Google Chrome";v="117.0.5938.60", "Not;A=Brand";v="8.0.0.0", "Chromium";v="117.0.5938.60"
+sec-ch-ua: "Google Chrome";v="117", "Not;A=Brand";v="8", "Chromium";v="117"
+
+EOF
+}
+
+if (!$t_lite) {
+	my $androidUserAgent = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36';
+	$r = get_with_client_hints_and_ua(
+		'/ua_uach_variable?ua='.uri_escape($androidUserAgent),
+		$desktopUserAgent);
+	like($r, qr/x-hardware-model: SM-S918B/,
+		'Client hints are matched with a User-Agent from a variable');
+	$r = get_with_client_hints_and_ua('/ua_uach_variable', $androidUserAgent);
+	like($r, qr/x-hardware-model: SM-S918B/,
+		'Client hints are matched with the header for a missing variable');
+}
 
 ###############################################################################
 # Test overrides

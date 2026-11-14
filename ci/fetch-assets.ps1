@@ -15,7 +15,7 @@ foreach ($asset in $assets) {
 # The IP intelligence tests use the free Asn file, which the data repository
 # links to rather than stores, so its script downloads it.
 $global:LASTEXITCODE = 0
-& "$data/get-data-files.ps1" 51Degrees-IPIV4AsnIpiV41.ipi
+& "$data/get-data-files.ps1" 51Degrees-IPIV4AsnIpiV41.ipi 51Degrees-LiteV4.1.hash
 if ($LASTEXITCODE -ne 0) {
-    throw "The Asn data file was not downloaded"
+    throw "The free data files were not downloaded"
 }

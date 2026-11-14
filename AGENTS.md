@@ -150,11 +150,17 @@ HTTP/1.1 200 OK
 ...
 x-device: Mobile Safari,iOS
 x-mobile: True
+x-hardware: NoMatch,NoMatch,NoMatch
+x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=enterprise-data-file
 ...
 ```
 
 `x-device-hinted` has the same form, a browser name and a platform name
-separated by a comma.
+separated by a comma. `x-hardware` reads `NoMatch` for HardwareVendor,
+HardwareName and DeviceType, which only the Enterprise data file has, and
+`x-enterprise`, which is there only when they read `NoMatch`, says where to ask
+for a copy. With the Enterprise data file `x-hardware` holds their values and
+there is no `x-enterprise` header.
 
 The IP Intelligence request answers with these lines, as
 `examples/ipi/gettingStarted.conf` documents.
@@ -163,6 +169,8 @@ The IP Intelligence request answers with these lines, as
 HTTP/1.1 200 OK
 ...
 x-asn-query: \"BBC\":1
+x-location-query: NoMatch,NoMatch,NoMatch
+x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=enterprise-data-file
 ...
 ```
 
@@ -171,14 +179,20 @@ Intelligence values take the form `"value":weight`, with each double quote
 escaped by a backslash in the header. A property the data file does not have
 reads `NoMatch` in both modules (`FIFTYONE_DEGREES_PROPERTY_NOT_AVAILABLE` in
 `51Degrees_hash_module/ngx_http_51D_module.c`, and its IP Intelligence
-counterpart). The Docker request answers with `x-platform-name`,
-`x-browser-name`, `x-is-mobile` and the other headers that
-`examples/curl/README.md` shows, and `x-device-type: NoMatch`, because the Lite
-file has no DeviceType.
+counterpart). `x-location-query` reads `NoMatch` for Country, Latitude and
+Longitude, which only the Enterprise data file has, and `x-enterprise` says
+where to ask for a copy. The mixed example answers with the headers of both.
+The Docker request answers with `x-platform-name`, `x-browser-name`,
+`x-is-mobile` and the other headers that `examples/curl/README.md` shows, and
+`x-device-type: NoMatch`, because the Lite file has no DeviceType, with
+`x-enterprise` saying where to ask for a copy. The configuration and match
+metrics examples answer with `x-hardware` and `x-enterprise` in the same way,
+and the JavaScript example's `/overrides` adds `x-enterprise` when the data file
+has no ScreenPixelsWidthJavascript.
 
-The paid data files have many more properties, as the
-[pricing page](https://51degrees.com/pricing?utm_source=github&utm_medium=docs&utm_campaign=51degrees-nginx&utm_content=agents.md&utm_term=correct-output)
-describes.
+The Enterprise data files have many more properties.
+[Contact us](https://51degrees.com/contact-us?utm_source=github&utm_medium=docs&utm_campaign=51degrees-nginx&utm_content=agents.md&utm_term=correct-output)
+for a copy.
 
 ### Cloud examples
 
@@ -216,10 +230,11 @@ There are none. The nginx modules work only on-premise, with a data file.
   `examples/curl/curl.sh` asks for `/mixed`, which the Docker image does not
   serve, so it gets `404 Not Found` with no 51Degrees headers. Use the request
   in `examples/curl/README.md` instead.
-- **What CI does not test.** CI builds with the paid `TAC-HashV41.hash`
-  (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), so it
-  never uses the Lite Device Detection file. `ci/fetch-assets.ps1` downloads
-  the Asn file with the data repository's script, as the steps here do.
+- **What CI tests.** CI builds with the paid `TAC-HashV41.hash`
+  (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
+  runs the example tests on it and again on the free Lite file, which a fresh
+  clone uses. `ci/fetch-assets.ps1` downloads the Lite and Asn files with the
+  data repository's script, as the steps here do.
 
 ## Building the modules
 

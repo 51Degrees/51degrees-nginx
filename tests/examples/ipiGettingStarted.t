@@ -64,7 +64,7 @@ if (!defined $ipiFilePath || !-e $ipiFilePath) {
 	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(6);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(8);
 
 my $t_file = read_example('gettingStarted.conf');
 # Remove the documentation block
@@ -114,6 +114,17 @@ my $r = get_uri('/ipi?client_ip=' . $knownIp);
 like($r, qr/x-asn: .+/, 'ASN name set (client IP)');
 like($r, qr/x-asn-query: .+/, 'ASN name set (query IP)');
 unlike($r, qr/x-asn-query: (NoMatch)?\r/, 'Query IP matched');
+
+# The location properties are only in the Enterprise data file. On a free
+# data file they read NoMatch, and x-enterprise links to ask for a copy.
+if (index($ipiFilePath, 'Enterprise') == -1) {
+	like($r, qr/x-location-query: NoMatch,NoMatch,NoMatch\r/, 'Location needs the Enterprise data file');
+	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
+}
+else {
+	unlike($r, qr/x-location-query: .*NoMatch/, 'Location matched');
+	unlike($r, qr/x-enterprise:/, 'No link with the Enterprise data file');
+}
 
 # Where the client_ip query argument is absent the directive which uses
 # $arg_client_ip falls back to the client IP address, so both headers
