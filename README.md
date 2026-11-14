@@ -60,6 +60,11 @@ This saves the file as `cxx/data/device-detection/51Degrees-LiteV4.1.hash`.
 A file that is already there is kept. Add `-u` to replace it when a newer
 version is available.
 
+`make install`, `make test` and `make test-examples` run the script for the
+free file they use by default when it is missing, so a fresh clone needs no
+step of its own. A file named with `51DEGREES_DD_PATH` or `51DEGREES_IPI_PATH`
+is never downloaded.
+
 ### IP Intelligence data file
 
 The free `51Degrees-IPIV4AsnIpiV41.ipi` file contains the Asn properties (Asn and AsnName). This file is used by default for the IP Intelligence examples and tests. Download it in the same way.
