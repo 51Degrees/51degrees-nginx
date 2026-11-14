@@ -1,6 +1,6 @@
 [
   {
-    "Image": "ubuntu-latest",
+    "Image": "ubuntu-24.04",
     "Name": "ubuntu-latest",
     "NginxVersion": "1.29.3",
     "NginxPlusVersion": "36",

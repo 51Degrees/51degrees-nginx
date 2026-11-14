@@ -29,13 +29,18 @@ if (!$openSourceOf.Count) {
     Write-Error "Failed to parse the list of releases"
 }
 
+# NGINX publishes NGINX Plus R36 and earlier for Ubuntu 24.04 but not for
+# Ubuntu 26.04, which ubuntu-latest now is, so the configuration that installs
+# NGINX Plus for the full test suite runs on 24.04. It keeps its name.
+$NginxPlusImage = 'ubuntu-24.04'
+
 Write-Host "Building options array..."
 [Collections.ArrayList]$options = @()
 foreach ($release in $supportedReleases) {
     $isLatest = $options.Count -lt 1
     foreach ($image in $Images) {
         [void]$options.Add([ordered]@{
-            Image = $image
+            Image = $isLatest ? $NginxPlusImage : $image
             # The latest version's configuration runs the performance tests
             # and is named after the image alone, with no NGINX version. The
             # performance graphs published to the gh-images branch are named
