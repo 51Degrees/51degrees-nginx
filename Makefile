@@ -71,6 +71,11 @@ else
 	INSTALL_DATA := data-file-dd
 endif
 
+# The example make install writes as build/nginx.conf, from examples/$(API),
+# with the file it serves in build/html. With API=hash it can also be config,
+# matchMetrics, matchQuery or responseHeaders/responseHeader.
+EXAMPLE := gettingStarted
+
 
 # For dynamic builds, both the device detection and IP intelligence modules
 # are built. For static builds, only the module selected by the API variable
@@ -224,8 +229,9 @@ ifeq ($(FILEPATH_IPI),$(DEFAULT_FILEPATH_IPI))
 endif
 
 install: $(INSTALL_DATA) configure
+	@[ -f "examples/$(API)/$(EXAMPLE).conf" ] || { echo "There is no example examples/$(API)/$(EXAMPLE).conf"; exit 1; }
 	cd $(CURDIR)/vendor/nginx-$(VERSION) && make install
-	sed "/\/\*\*/,/\*\//d" examples/$(API)/gettingStarted.conf > build/nginx.conf
+	sed "/\/\*\*/,/\*\//d" examples/$(API)/$(EXAMPLE).conf > build/nginx.conf
 	sed -i "s!%%DAEMON_MODE%%!on!g" build/nginx.conf
 	sed -i "s!%%MODULE_PATH%%!!g" build/nginx.conf
 	sed -i "s!%%FILE_PATH%%!$(FILEPATH)!g" build/nginx.conf
@@ -238,7 +244,13 @@ ifdef STATIC_BUILD
 	# object that a static build does not produce.
 	sed -i "/load_module/d" build/nginx.conf
 endif
-	echo > build/html/$(API)
+	case "$(EXAMPLE)" in \
+		config) echo > build/html/config ;; \
+		matchMetrics) echo > build/html/metrics ;; \
+		matchQuery) echo > build/html/query ;; \
+		responseHeaders/responseHeader) cp examples/hash/responseHeaders/response.html build/html/ ;; \
+		*) echo > build/html/$(API) ;; \
+	esac
 
 install-no-module: configure-no-module	
 	cd $(CURDIR)/vendor/nginx-$(VERSION) && make install
