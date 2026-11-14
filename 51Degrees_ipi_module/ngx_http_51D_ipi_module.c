@@ -1025,13 +1025,16 @@ get_evidence_from_variable(ngx_http_request_t *r, ngx_str_t *variableName) {
 
 /**
  * Get match function. Performs an IP intelligence match for the IP
- * address provided.
+ * address provided. A value that is not all one address is not read, as
+ * the IP Intelligence specification's "Reading the client IP value" says,
+ * and that is not an error, so nothing is logged for it.
  * @param fdmcf module main config.
  * @param r the current HTTP request.
  * @param ipAddress the IP address to perform the match on.
- * @return Nginx status code.
+ * @return NGX_OK for a match, NGX_DECLINED for a value that is not read,
+ * or NGX_ERROR.
  */
-static ngx_uint_t ngx_http_51D_ipi_get_match(
+static ngx_int_t ngx_http_51D_ipi_get_match(
 	ngx_http_51D_ipi_main_conf_t *fdmcf,
 	ngx_http_request_t *r,
 	ngx_str_t *ipAddress)
@@ -1043,6 +1046,10 @@ static ngx_uint_t ngx_http_51D_ipi_get_match(
 		ipAddress->len,
 		exception);
 	if (EXCEPTION_FAILED) {
+		if (exception->status ==
+			FIFTYONE_DEGREES_STATUS_INCORRECT_IP_ADDRESS_FORMAT) {
+			return NGX_DECLINED;
+		}
 		return report_status(
 			r->connection->log,
 			exception->status,
@@ -1061,13 +1068,16 @@ static ngx_uint_t ngx_http_51D_ipi_get_match(
  * @param requiredPropertyName the name of the property to get the value
  * for.
  * @param length the size allocated to the values_string variable.
+ * @param addressRead zero when the IP address was not read, which gives no
+ * value whatever the results hold.
  */
 static void ngx_http_51D_ipi_get_value(
 	ngx_http_51D_ipi_main_conf_t *fdmcf,
 	ngx_http_request_t *r,
 	char *values_string,
 	const char *requiredPropertyName,
-	size_t length)
+	size_t length,
+	int addressRead)
 {
 	size_t remainingLength = length - strlen(values_string);
 	ResultsIpi *results = fdmcf->results;
@@ -1090,7 +1100,7 @@ static void ngx_http_51D_ipi_get_value(
 			PropertiesGetRequiredPropertyIndexFromName(
 				dataSet->b.b.available, requiredPropertyName);
 
-		bool hasValues = ResultsIpiGetHasValues(
+		bool hasValues = addressRead != 0 && ResultsIpiGetHasValues(
 			results,
 			requiredPropertyIndex,
 			exception);
@@ -1143,6 +1153,8 @@ static void ngx_http_51D_ipi_get_value(
  * @param haveMatch whether a match has already been performed for the
  * input IP address.
  * @param ipAddress an IP address string to perform the match on.
+ * @param addressRead set to zero when the IP address is not read, so every
+ * property has no value, and to one otherwise.
  * @return an escaped value string. NULL if an error occurred.
  */
 static u_char *getEscapedMatchedValueString(
@@ -1150,16 +1162,21 @@ static u_char *getEscapedMatchedValueString(
 	ngx_http_51D_ipi_main_conf_t *fdmcf,
 	ngx_http_51D_ipi_data_to_set *header,
 	int haveMatch,
-	ngx_str_t *ipAddress)
+	ngx_str_t *ipAddress,
+	int *addressRead)
 {
 	memset(fdmcf->valueString, 0, FIFTYONE_DEGREES_IPI_MAX_STRING);
+	*addressRead = 1;
 
 	// Get a match. If there are multiple instances of 51D_match_ipi, then
 	// don't get the match if it has already been fetched.
 	if (haveMatch == 0) {
-		ngx_uint_t ngxCode =
+		ngx_int_t ngxCode =
 			ngx_http_51D_ipi_get_match(fdmcf, r, ipAddress);
-		if (ngxCode != NGX_OK) {
+		if (ngxCode == NGX_DECLINED) {
+			*addressRead = 0;
+		}
+		else if (ngxCode != NGX_OK) {
 			return NULL;
 		}
 	}
@@ -1174,7 +1191,8 @@ static u_char *getEscapedMatchedValueString(
 			r,
 			fdmcf->valueString,
 			(const char *)header->property[property_index]->data,
-			FIFTYONE_DEGREES_IPI_MAX_STRING);
+			FIFTYONE_DEGREES_IPI_MAX_STRING,
+			*addressRead);
 	}
 
 	// Escape characters which cannot be added in a header value, most
@@ -1206,7 +1224,9 @@ static u_char *getEscapedMatchedValueString(
  * @param haveMatch indicates if a match has already been performed for the
  * input IP address
  * @param ipAddress the IP address to perform the match for
- * @return code to indicate the status of the operation.
+ * @return NGX_OK when the header holds the values of a match for the IP
+ * address, NGX_DECLINED when the address was not read and the header holds
+ * no value, so the results must not be reused for it, or NGX_ERROR.
  */
 static ngx_uint_t
 process(ngx_http_request_t *r,
@@ -1216,8 +1236,9 @@ process(ngx_http_request_t *r,
 		ngx_str_t *ipAddress)
 {
 	ngx_table_elt_t *h;
+	int addressRead;
 	u_char *escapedValueString = getEscapedMatchedValueString(
-		r, fdmcf, header, haveMatch, ipAddress);
+		r, fdmcf, header, haveMatch, ipAddress, &addressRead);
 	if (escapedValueString == NULL) {
 		return NGX_ERROR;
 	}
@@ -1234,7 +1255,7 @@ process(ngx_http_request_t *r,
 	h->value.data = escapedValueString;
 	h->value.len = ngx_strlen(h->value.data);
 	h->lowcase_key = (u_char *)header->lowerHeaderName.data;
-	return NGX_OK;
+	return addressRead ? NGX_OK : NGX_DECLINED;
 }
 
 /**
