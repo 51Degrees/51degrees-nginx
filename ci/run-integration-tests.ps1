@@ -63,6 +63,11 @@ try {
 
     Write-Host "Testing examples"
     make test-examples $staticBuild DONT_CLEAN_TESTS=1 51DEGREES_DD_PATH="$HashFilePath" FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Examples.xml
+
+    # A fresh clone has the free Lite data file, which the Makefile uses when
+    # no other file is named, so the examples run on it as well.
+    Write-Host "Testing examples on the free Lite data file"
+    make test-examples $staticBuild DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Examples_Lite.xml
 } finally {
     Pop-Location
 }

@@ -34,7 +34,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $n = 0;
+my $n = 1;
 my $t_lite = 1;
 
 # The Lite data file version does not contains properties that can be used
@@ -113,6 +113,16 @@ if (!$t_lite && 0) {
 	like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using User Agent');
 	like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using User Agent');
 	like($r, qr/Browser Version:.*90/, 'Get Browser Version using User Agent');
+}
+
+# The hardware properties are only in the Enterprise data file. On the free
+# Lite data file the page links to ask for a copy.
+my $r = get_with_ua('/response.html', $chromeUserAgent);
+if ($t_lite) {
+	like($r, qr/<a href="https:\/\/51degrees\.com\/contact-us\?[^"]*">Contact us<\/a>/, 'Link to ask for the Enterprise data file');
+}
+else {
+	unlike($r, qr/contact-us/, 'No link with the Enterprise data file');
 }
 
 ###############################################################################
