@@ -1,0 +1,45 @@
+name: Temporary build with the Makefile's own flags on Ubuntu 26.04
+
+on:
+  push:
+    branches:
+      - tmp/const-red
+      - tmp/const-green
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { nginx: 1.29.3, image: ubuntu-26.04 }
+          - { nginx: 1.29.0, image: ubuntu-26.04 }
+          - { nginx: 1.27.4, image: ubuntu-26.04 }
+          - { nginx: 1.27.2, image: ubuntu-26.04 }
+          - { nginx: 1.29.3, image: ubuntu-24.04 }
+    runs-on: ${{ matrix.image }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y make zlib1g-dev libpcre2-dev libatomic1
+          gcc --version | head -1
+      - name: Dynamic build, both modules
+        run: |
+          set -o pipefail
+          make install FIFTYONEDEGREES_NGINX_VERSION=${{ matrix.nginx }} 2>&1 | tee build.log | tail -5
+          echo "warnings: $(grep -c 'warning:' build.log)"
+      - name: Static build of each module
+        run: |
+          set -o pipefail
+          for api in hash ipi; do
+            make install STATIC_BUILD=1 API=$api FIFTYONEDEGREES_NGINX_VERSION=${{ matrix.nginx }} 2>&1 | tee static-$api.log | tail -3
+            echo "static $api warnings: $(grep -c 'warning:' static-$api.log)"
+          done
