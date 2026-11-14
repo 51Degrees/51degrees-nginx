@@ -1,0 +1,76 @@
+name: Temporary look at what the JavaScript example page shows in a browser
+
+on:
+  push:
+    branches:
+      - tmp/verbose-js
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  page:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Clone
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          git clone --branch rc --recurse-submodules --shallow-submodules https://github.com/51Degrees/51degrees-nginx 51degrees-nginx
+          git -C 51degrees-nginx log -1 --format='module at %H %s'
+          git clone --depth 1 https://github.com/51Degrees/common-ci common-ci
+          git -C common-ci log -1 --format='common-ci at %H %s'
+          git clone --depth 1 --branch tmp/verbose-js https://github.com/51Degrees/51degrees-nginx probe
+      - name: Fetch the TAC file as CI does
+        env:
+          DD_KEY: ${{ secrets.DEVICE_DETECTION_KEY }}
+          DD_URL: ${{ secrets.DEVICE_DETECTION_URL }}
+        run: |
+          ./common-ci/steps/fetch-assets.ps1 -DeviceDetection $env:DD_KEY -DeviceDetectionUrl $env:DD_URL -Assets TAC-HashV41.hash
+          New-Item -ItemType SymbolicLink -Force -Target "$PWD/assets/TAC-HashV41.hash" -Path 51degrees-nginx/cxx/data/device-detection/TAC-HashV41.hash
+          Get-ChildItem assets | Select-Object Name, Length
+      - name: Set up as CI does
+        run: ./51degrees-nginx/ci/setup-environment.ps1 -RepoName 51degrees-nginx -NginxVersion 1.29.3 -Name proof
+      - name: Build
+        run: |
+          Set-Location 51degrees-nginx
+          make DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=1.29.3 install 2>&1 | Select-Object -Last 4
+          Get-ChildItem build/html | Select-Object Name
+      - name: Look at the page
+        run: |
+          Set-Location 51degrees-nginx
+          # As ci/run-integration-tests.ps1 does
+          Copy-Item examples/hash/jsExample/javascript.conf build/nginx.conf
+          sed -i "s/51Degrees-LiteV4\.1\.hash/TAC-HashV41\.hash/g" build/nginx.conf
+          sed -i "/\/\*\*/,/\*\//d" build/nginx.conf
+          ./nginx
+          Start-Sleep 2
+          $chrome = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+          Write-Host "=== /51D.js"
+          curl -s -i -A $chrome http://localhost:8888/51D.js | Select-Object -First 30
+          Write-Host "=== /overrides with no static file"
+          curl -s -i -A $chrome http://localhost:8888/overrides
+          Push-Location tests/examples/jsExample
+          npm install --no-audit --no-fund 2>&1 | Select-Object -Last 2
+          Write-Host "chromedriver $(which chromedriver) $env:CHROMEWEBDRIVER, geckodriver $(which geckodriver) $env:GECKOWEBDRIVER"
+          $env:PATH = "$($env:PATH):$env:CHROMEWEBDRIVER:$env:GECKOWEBDRIVER"
+          Copy-Item ../../../../probe/probe.js probe.js
+          Write-Host "=== Browsers, with no static file for /overrides, as CI runs it now"
+          node probe.js ../../../examples/hash/jsExample/index.html
+          Pop-Location
+          Write-Host "=== With the static file the example's instructions ask for"
+          New-Item -ItemType File -Force build/html/overrides | Out-Null
+          curl -s -i -A $chrome http://localhost:8888/overrides
+          Write-Host "=== /overrides with the width in the query string"
+          curl -s -i -A $chrome "http://localhost:8888/overrides?51D_ScreenPixelsWidth=1234"
+          Write-Host "=== /overrides with the width in a cookie"
+          curl -s -i -A $chrome -H "Cookie: 51D_ScreenPixelsWidth=1234" http://localhost:8888/overrides
+          Push-Location tests/examples/jsExample
+          node probe.js ../../../examples/hash/jsExample/index.html
+          Pop-Location
+          ./nginx -s quit
