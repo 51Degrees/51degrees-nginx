@@ -58,15 +58,17 @@ stored in this repository. The `cxx` submodule holds the
 [data](https://github.com/51Degrees/data) repository as `cxx/data`, which has a
 link to each file, and a script downloads them into `cxx/data/device-detection`
 and `cxx/data/ip-intelligence`, where the `FILEPATH :=` and `FILEPATH_IPI :=`
-lines in `Makefile` look for them. Nothing in the build downloads a file, so
-download the Device Detection Lite file and the IP Intelligence Asn file
-first.
+lines in `Makefile` look for them. `make install` runs that script for the
+free file its `API` uses when it is missing (both for `mixed`), `make test`
+for the Lite file and `make test-examples` for both, so a fresh clone needs no
+step of its own. To fetch both before building, run the script yourself.
 
 ```
 sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-IPIV4AsnIpiV41.ipi
 ```
 
-The script keeps a file that is already there.
+The script keeps a file that is already there. A file named with
+`51DEGREES_DD_PATH` or `51DEGREES_IPI_PATH` is never downloaded.
 
 #### Check the files
 
@@ -203,7 +205,9 @@ There are none. The nginx modules work only on-premise, with a data file.
 - **A data file that is not there.** `cxx/data` holds a `.link` for each file
   rather than the file. nginx then does not start, and its error log,
   `build/logs/error.log`, has a line starting with `51Degrees` that describes
-  the data file. Download the files and check their sizes as above.
+  the data file. This happens when a build names a file that is not there,
+  or when the download in `make install` failed. Download the files and check
+  their sizes as above.
 - **Missing submodules.** `make install` then stops at its first
   `cp cxx/src/...`, because the module sources come from the `cxx` submodule.
   A zip download of the repository has no submodules, so clone with Git.
