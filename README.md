@@ -345,8 +345,10 @@ make [test|test-full] 51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
 
 The data file used by the tests is resolved in the following order:
 
-1. The `51DEGREES_DD_PATH` environment variable, which provides an explicit
-   path to the data file.
+1. `51DEGREES_DD_PATH` given on the make command line, as below, or else the
+   `_51DEGREES_DD_PATH` environment variable, either of which provides an
+   explicit path to the data file. No shell can export a name that starts with
+   a digit, so `51DEGREES_DD_PATH` works only on the make command line.
 2. The legacy `FIFTYONEDEGREES_DATAFILE` variable, which provides a file name
    that is combined with the `cxx/data/device-detection`
    folder. This variable is deprecated and will be removed in a future
@@ -360,10 +362,16 @@ For example:
 make test 51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
 ```
 
+`make test-examples` hands the example tests the two paths as
+`_51DEGREES_DD_PATH` and `_51DEGREES_IPI_PATH`. A test run some other way reads
+the same names, or the deprecated `TEST_FILE_PATH` and `TEST_FILE_PATH_IPI`
+when those are unset or empty, and then prints once that the old name is
+deprecated.
+
 Note that when running NGINX itself the data file is always specified
 explicitly with the `51D_file_path` directive in the configuration file.
 
-The IP Intelligence tests resolve their data file in the same order. The `51DEGREES_IPI_PATH` environment variable provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/data/ip-intelligence` folder, it is deprecated and using it prints a make warning. When neither variable is set the free `51Degrees-LiteV41.ipi` file in that folder is used, which is downloaded as described in [Data files](#data-files). The IP Intelligence example tests are skipped when the file is not present. e.g.
+The IP Intelligence tests resolve their data file in the same order. `51DEGREES_IPI_PATH` on the make command line, or else the `_51DEGREES_IPI_PATH` environment variable, provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/data/ip-intelligence` folder, it is deprecated and using it prints a make warning. When neither variable is set the free `51Degrees-LiteV41.ipi` file in that folder is used, which is downloaded as described in [Data files](#data-files). The IP Intelligence example tests are skipped when the file is not present. e.g.
 ```
 make test-examples 51DEGREES_IPI_PATH=/path/to/51Degrees-EnterpriseIpiV41.ipi
 ```
