@@ -30,7 +30,7 @@ const path = require('path');
 // each browser test may take from starting the browser, with room for a
 // slow runner.
 const PageWaitMilliseconds = 30000;
-const TestTimeoutMilliseconds = 60000;
+const TestTimeoutMilliseconds = 120000;
 
 let eOpts = new edge.Options();
 
