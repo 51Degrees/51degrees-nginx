@@ -239,8 +239,10 @@ There are none. The nginx modules work only on-premise, with a data file.
 - **What CI tests.** CI builds with the paid `TAC-HashV41.hash`
   (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
   runs the example tests on it and again on the free Lite file, which a fresh
-  clone uses. `ci/fetch-assets.ps1` downloads the Lite and Asn files with the
-  data repository's script, as the steps here do.
+  clone uses. `ci/fetch-assets.ps1` takes every data file from common-ci's
+  assets, which each run fetches once and caches because the workflows set
+  `cache-assets`, and copies the Lite and Asn files to where a fresh clone's
+  data submodule keeps them.
 
 ## Building the modules
 
