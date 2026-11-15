@@ -6,16 +6,17 @@ $ErrorActionPreference = "Stop"
 
 $data = "$PSScriptRoot/../cxx/data"
 
+# Every data file the tests read is an asset, which the run caches once, so a
+# test job restores the files rather than downloading them.
 $assets = "TAC-HashV41.hash", "20000 Evidence Records.yml", "20000 User Agents.csv"
-./steps/fetch-assets.ps1 -DeviceDetection:$DeviceDetection -DeviceDetectionUrl:$DeviceDetectionUrl -Assets $assets
+$liteHash = "51Degrees-LiteV4.1.hash"
+$asn = "51Degrees-IPIV4AsnIpiV41.ipi"
+./steps/fetch-assets.ps1 -DeviceDetection:$DeviceDetection -DeviceDetectionUrl:$DeviceDetectionUrl -Assets ($assets + $liteHash + $asn)
 foreach ($asset in $assets) {
     New-Item -ItemType SymbolicLink -Force -Target "$PWD/assets/$asset" -Path "$data/device-detection/$asset"
 }
 
-# The IP intelligence tests use the free Asn file, which the data repository
-# links to rather than stores, so its script downloads it.
-$global:LASTEXITCODE = 0
-& "$data/get-data-files.ps1" 51Degrees-IPIV4AsnIpiV41.ipi 51Degrees-LiteV4.1.hash
-if ($LASTEXITCODE -ne 0) {
-    throw "The free data files were not downloaded"
-}
+# The free files go where a fresh clone's data submodule keeps them, which is
+# where the tests and examples look by default.
+Copy-Item "assets/$liteHash" "$data/device-detection"
+Copy-Item "assets/$asn" "$data/ip-intelligence"
