@@ -25,14 +25,14 @@ FULLPATH := $(shell pwd)
 ifndef FIFTYONEDEGREES_DATAFILE
 	DATAFILE := 51Degrees-LiteV4.1.hash
 else
-$(warning FIFTYONEDEGREES_DATAFILE is deprecated and will be removed in a future release. Use 51DEGREES_DD_PATH with an explicit path to the data file instead.)
+$(warning FIFTYONEDEGREES_DATAFILE is deprecated and will be removed in a future release. Use _51DEGREES_DD_PATH, or 51DEGREES_DD_PATH on the make command line, with an explicit path to the data file instead.)
 	DATAFILE := $(FIFTYONEDEGREES_DATAFILE)
 endif
 
 ifndef FIFTYONEDEGREES_DATAFILE_IPI
 	DATAFILE_IPI := 51Degrees-LiteV41.ipi
 else
-$(warning FIFTYONEDEGREES_DATAFILE_IPI is deprecated and will be removed in a future release. Use 51DEGREES_IPI_PATH with an explicit path to the data file instead.)
+$(warning FIFTYONEDEGREES_DATAFILE_IPI is deprecated and will be removed in a future release. Use _51DEGREES_IPI_PATH, or 51DEGREES_IPI_PATH on the make command line, with an explicit path to the data file instead.)
 	DATAFILE_IPI := $(FIFTYONEDEGREES_DATAFILE_IPI)
 endif
 
@@ -40,18 +40,25 @@ MODULEPATH := $(FULLPATH)/build/modules/ngx_http_51D_module.so
 FILEPATH := $(FULLPATH)/cxx/data/device-detection/$(DATAFILE)
 FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/$(DATAFILE_IPI)
 
-# The aligned environment variable 51DEGREES_DD_PATH provides an explicit
-# path to a device detection data file and is checked first. The legacy
-# FIFTYONEDEGREES_DATAFILE name variable above is retained for backwards
-# compatibility and is combined with the expected data folder when no
-# explicit path is provided.
+# A path to the device detection data file comes from 51DEGREES_DD_PATH on
+# the make command line, or else from the _51DEGREES_DD_PATH environment
+# variable. The deprecated FIFTYONEDEGREES_DATAFILE above gives only a file
+# name, which is looked for in the data folder.
+ifdef _51DEGREES_DD_PATH
+	FILEPATH := $(_51DEGREES_DD_PATH)
+	DATAFILE := $(notdir $(_51DEGREES_DD_PATH))
+endif
 ifdef 51DEGREES_DD_PATH
 	FILEPATH := $(51DEGREES_DD_PATH)
 	DATAFILE := $(notdir $(51DEGREES_DD_PATH))
 endif
 
-# The aligned environment variable 51DEGREES_IPI_PATH provides an explicit
-# path to an IP intelligence data file in the same way.
+# A path to the IP intelligence data file comes from 51DEGREES_IPI_PATH or
+# _51DEGREES_IPI_PATH in the same way.
+ifdef _51DEGREES_IPI_PATH
+	FILEPATH_IPI := $(_51DEGREES_IPI_PATH)
+	DATAFILE_IPI := $(notdir $(_51DEGREES_IPI_PATH))
+endif
 ifdef 51DEGREES_IPI_PATH
 	FILEPATH_IPI := $(51DEGREES_IPI_PATH)
 	DATAFILE_IPI := $(notdir $(51DEGREES_IPI_PATH))
@@ -276,7 +283,7 @@ test-examples: test-prep data-file-dd data-file-ipi
 ifeq (,$(wildcard $(FULLPATH)/nginx))
 	$(error Local binary must be built first (use "make install"))
 else
-	$(eval CMD := TEST_NGINX_BINARY="$(FULLPATH)/nginx" TEST_MODULE_PATH="$(FULLPATH)/build/" TEST_NGINX_STATIC="$(TEST_NGINX_STATIC)" TEST_FILE_PATH="$(FILEPATH)" TEST_FILE_PATH_IPI="$(FILEPATH_IPI)" ASAN_OPTIONS=detect_odr_violation=0 LSAN_OPTIONS=suppressions=suppressions.txt prove $(FIFTYONEDEGREES_FORMATTER) -v $(EXAMPLE_TESTS) :: $(DATAFILE))
+	$(eval CMD := TEST_NGINX_BINARY="$(FULLPATH)/nginx" TEST_MODULE_PATH="$(FULLPATH)/build/" TEST_NGINX_STATIC="$(TEST_NGINX_STATIC)" _51DEGREES_DD_PATH="$(FILEPATH)" _51DEGREES_IPI_PATH="$(FILEPATH_IPI)" ASAN_OPTIONS=detect_odr_violation=0 LSAN_OPTIONS=suppressions=suppressions.txt prove $(FIFTYONEDEGREES_FORMATTER) -v $(EXAMPLE_TESTS) :: $(DATAFILE))
 ifdef FIFTYONEDEGREES_TEST_OUTPUT
 	$(CMD) > $(FIFTYONEDEGREES_TEST_OUTPUT)
 else
