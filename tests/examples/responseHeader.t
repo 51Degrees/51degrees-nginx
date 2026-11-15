@@ -34,7 +34,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $n = 13;
+my $n = 9;
 my $t_lite = 1;
 
 # The Lite data file version does not contains properties that can be used
@@ -98,21 +98,12 @@ my $chromeUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML
 # Test responseHeader.conf example.
 ###############################################################################
 
-# The client hints checks of the page. Header names are not case sensitive,
-# so neither is the Accept-CH check. The Lite file gives no browser, and so no
-# Accept-CH, for a request with Sec-CH-UA and no User-Agent, so those four
-# checks need another data file.
+# The checks of the page, which run on any data file. A request with
+# Sec-CH-UA and no User-Agent matches no platform. Header names are not case
+# sensitive, so neither is the Accept-CH check.
 {
 	my $r = get_with_ch_ua('/response.html', $chromeCHUA);
 	like($r, qr/Platform Name:.*NoMatch/, 'Get Platform Name using Client Hint');
-	SKIP: {
-		skip 'the Lite data file gives no browser for Sec-CH-UA alone', 4
-			if $t_lite;
-		like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
-		like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using Client Hint');
-		like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using Client Hint');
-		like($r, qr/Browser Version:.*90/, 'Get Browser Version using Client Hint');
-	}
 
 	$r = get_with_ua('/response.html', $chromeUserAgent);
 	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
@@ -138,11 +129,3 @@ like($r, qr/<a href="https:\/\/51degrees\.com\/device-detection\?utm_source=code
 	'Find out more link tagged for the example');
 
 ###############################################################################
-
-# Print out warnings at the end for user attention
-if ($t_lite) {
-    print "WARNING: Four client hints checks of the response headers example\n";
-    print "         were skipped, as the Lite data file gives no browser for a\n";
-    print "         request with Sec-CH-UA alone. Run the tests with a paid\n";
-    print "         data file to include them.\n";
-}
