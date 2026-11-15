@@ -35,8 +35,10 @@ On Ubuntu, CI installs the build tools with this command, on runners that
 already have gcc.
 
 ```
-sudo apt-get install make zlib1g-dev libpcre3 libpcre3-dev
+sudo apt-get install make zlib1g-dev libpcre2-dev
 ```
+
+NGINX reads PCRE2 from 1.21.5, and Ubuntu 26.04 has no PCRE1 (`libpcre3`).
 
 Clone the repository with its submodules.
 
@@ -128,6 +130,15 @@ network to report. `API=mixed` works in the same way for
 `/mixed`. The request it documents is
 `curl "localhost:8080/mixed?client_ip=212.58.224.22" -I -A "<the User-Agent above>"`.
 
+The other Device Detection examples run in the same way with `EXAMPLE`, which
+names the example in `examples/hash` that `make install` writes as
+`build/nginx.conf`. `make install EXAMPLE=config` writes
+`examples/hash/config.conf` and creates `build/html/config`, which it serves
+at `/config`. `EXAMPLE=matchMetrics` answers at `/metrics`,
+`EXAMPLE=matchQuery` at `/query?user_agent=<a User-Agent>`, and
+`EXAMPLE=responseHeaders/responseHeader` at `/response.html`. Each example's
+comment gives its request.
+
 On macOS, or anywhere Docker runs, the curl example builds the module in a
 Debian image.
 
@@ -154,6 +165,7 @@ x-device: Mobile Safari,iOS
 x-mobile: True
 x-hardware: NoMatch,NoMatch,NoMatch
 x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=enterprise-data-file
+x-find-out-more: This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about device detection at https://51degrees.com/device-detection?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=device-detection and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=pricing
 ...
 ```
 
@@ -164,6 +176,10 @@ HardwareName and DeviceType, which only the Enterprise data file has, and
 for a copy. With the Enterprise data file `x-hardware` holds their values and
 there is no `x-enterprise` header.
 
+Each example that answers with headers ends them with `x-find-out-more`,
+which gives the module and engine repositories and the 51degrees.com pages
+to read next. The example pages end with the same section.
+
 The IP Intelligence request answers with these lines, as
 `examples/ipi/gettingStarted.conf` documents.
 
@@ -173,6 +189,7 @@ HTTP/1.1 200 OK
 x-registered-name-query: \"UK-BBC-991005\":1
 x-location-query: NoMatch,NoMatch,NoMatch
 x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=enterprise-data-file
+x-find-out-more: This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about IP intelligence at https://51degrees.com/ip-intelligence?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=ip-intelligence and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=pricing
 ...
 ```
 

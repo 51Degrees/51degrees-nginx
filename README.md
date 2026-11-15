@@ -255,7 +255,7 @@ All examples are located in the `examples` folder. Device detection examples are
 |jsExample|Shows how to use 51D_get_javascript* directive to get the JavaScript to obtain further evidences from the client. To run this example, start NGINX with the included `javascript.conf` set as the configuration file. Once NGINX fully start, open `index.html` in a browser to see that the screen width is now set correctly.|
 <br>
 
-To run these examples, follow the instructions detailed in each example.
+To run an example, `make install` writes the getting started example for `API` as `build/nginx.conf`, and `EXAMPLE` names another in `examples/hash`, for example `make install EXAMPLE=config`, filling in its data file and creating the file it serves. Each example's comment gives its request.
 
 # Build and test (Linux)
 Before build and test the 51Degrees module, make sure to check out the project and all of its sub-modules.

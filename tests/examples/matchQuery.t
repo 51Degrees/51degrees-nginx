@@ -38,7 +38,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(4);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(6);
 
 my $t_file = read_example('matchQuery.conf');
 # Remove documentation block
@@ -92,5 +92,10 @@ $r = get_with_ua('/query', $desktopUserAgent);
 like($r, qr/x-mobile-single: False/, 'Desktop match without the argument (single)');
 like($r, qr/x-mobile-all: False/, 'Desktop match without the argument (all)');
 
-###############################################################################
+# The example ends its own headers with where to find out more.
+my $findOutMore = 'This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about device detection at https://51degrees.com/device-detection?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-matchquery.conf&utm_term=device-detection and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-matchquery.conf&utm_term=pricing';
+like($r, qr/^x-find-out-more: \Q$findOutMore\E\r$/m, 'Find out more');
+unlike($r, qr/\nx-find-out-more:[^\n]*\n(?:[^\n]*\n)*?x-/,
+	'No example header after Find out more');
 
+###############################################################################
