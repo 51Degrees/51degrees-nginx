@@ -69,7 +69,7 @@ if (!defined $ipiFilePath || !-e $ipiFilePath) {
 	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(7);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(9);
 
 my $t_file = read_example('gettingStarted.conf');
 # Remove the documentation block
@@ -148,5 +148,11 @@ else {
 # without taking a null terminated copy.
 unlike($t->read_file('error.log'), qr/IP address format is incorrect/,
 	'Client IP address parsed');
+
+# The example ends its own headers with where to find out more.
+my $findOutMore = 'These modules are at https://github.com/51Degrees/51degrees-nginx and the engine they use at https://github.com/51Degrees/51degrees-cxx. Read about device detection at https://51degrees.com/device-detection?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-mixed-gettingstarted.conf&utm_term=device-detection, about IP intelligence at https://51degrees.com/ip-intelligence?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-mixed-gettingstarted.conf&utm_term=ip-intelligence and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-mixed-gettingstarted.conf&utm_term=pricing';
+like($r, qr/^x-find-out-more: \Q$findOutMore\E\r$/m, 'Find out more');
+unlike($r, qr/\nx-find-out-more:[^\n]*\n(?:[^\n]*\n)*?x-/,
+	'No example header after Find out more');
 
 ###############################################################################
