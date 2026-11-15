@@ -222,8 +222,13 @@ ok($master && $before ne '' && $before !~ /NoMatch/,
 
 unlink $link or die "Can't remove $link: $!";
 symlink("$dir/cut.ipi", $link) or die "Can't link $link: $!";
+# The master logs each signal it takes. The exit code of nginx -s is not
+# checked, as under the memory check LeakSanitizer reports the pool NGINX's
+# main() never frees in a process that only sends a signal.
 my $reloadOutput = `$control -s reload 2>&1`;
-is($? >> 8, 0, 'Reload: the reload is sent') or diag($reloadOutput);
+ok(wait_for($reloadSeconds, sub {
+	return read_log() =~ /\(SIGHUP\) received.*reconfiguring/ ? 1 : 0;
+}), 'Reload: the master takes the reload') or diag($reloadOutput);
 my $logged = wait_for($reloadSeconds, sub {
 	my $text = read_log();
 	return $text =~ /51Degrees.*\Q$link\E/ ? $text : '';
