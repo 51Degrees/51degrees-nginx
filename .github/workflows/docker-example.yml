@@ -1,0 +1,72 @@
+name: Docker example
+
+# Builds the curl example's Docker image from the branch under change, starts
+# it as the example's run.sh does, and checks curl.sh and curl.php. It runs
+# when a pull request changes the example or what the image builds.
+on:
+  pull_request:
+    paths:
+      - 'examples/curl/**'
+      - '51Degrees_hash_module/**'
+      - '51Degrees_ipi_module/**'
+      - 'Makefile'
+      - 'cxx'
+      - '.github/workflows/docker-example.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # How long the image may take to answer once started, in seconds.
+  START_SECONDS: 120
+
+jobs:
+  docker-example:
+    name: Docker example
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build the image from this branch
+        working-directory: examples/curl
+        run: docker build --build-arg BRANCH=${{ github.head_ref || github.ref_name }} -t 51d-nginx-curl .
+
+      - name: Report the NGINX version in the image
+        run: docker run --rm 51d-nginx-curl /app/nginx -v
+
+      - name: Start the image as run.sh does
+        run: docker run -d -p 8080:8080 --name curl-example 51d-nginx-curl
+
+      - name: Wait for the example to answer
+        run: |
+          for i in $(seq 1 "$START_SECONDS"); do
+            if curl -s -o /dev/null "http://127.0.0.1:8080/hash"; then
+              echo "Answered after $i seconds"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::The example did not answer within $START_SECONDS seconds"
+          exit 1
+
+      - name: Run curl.sh
+        working-directory: examples/curl
+        run: |
+          sh ./curl.sh | tee curl-sh.txt
+          test "$(grep -c '^HTTP/1.1 200 OK' curl-sh.txt)" = "$(grep -c '^HTTP/' curl-sh.txt)"
+          grep -qi 'x-is-mobile: True' curl-sh.txt
+          grep -qi 'x-enterprise: .*contact-us' curl-sh.txt
+          grep -qi '^x-find-out-more: ' curl-sh.txt
+
+      - name: Run curl.php
+        working-directory: examples/curl
+        run: |
+          php curl.php | tee curl-php.txt
+          test "$(grep -c '^HTTP/1.1 200 OK' curl-php.txt)" = "$(grep -c '^HTTP/' curl-php.txt)"
+          grep -qi 'x-is-mobile: True' curl-php.txt
+
+      - name: Show the container's log
+        if: always()
+        run: docker logs curl-example 2>&1 | tail -50 || true

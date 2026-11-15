@@ -153,7 +153,9 @@ Then send the request that `examples/curl/README.md` gives, which asks for
 and one more. The image clones a branch from GitHub rather than using your
 checkout, `main` unless `--build-arg BRANCH=<branch>` names another, builds
 nginx 1.29.3, which CI tests, and loads only the Device Detection module, with
-`examples/curl/nginx.conf`.
+`examples/curl/nginx.conf`. The workflow `.github/workflows/docker-example.yml`
+builds the image from a pull request's branch when the pull request changes
+the example or what the image builds, and checks `curl.sh` and `curl.php`.
 
 ### Correct output
 
