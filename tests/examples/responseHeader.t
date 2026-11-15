@@ -98,15 +98,21 @@ my $chromeUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML
 # Test responseHeader.conf example.
 ###############################################################################
 
-# The client hints checks of the page, which run on any data file. Header
-# names are not case sensitive, so neither is the Accept-CH check.
+# The client hints checks of the page. Header names are not case sensitive,
+# so neither is the Accept-CH check. The Lite file gives no browser, and so no
+# Accept-CH, for a request with Sec-CH-UA and no User-Agent, so those four
+# checks need another data file.
 {
 	my $r = get_with_ch_ua('/response.html', $chromeCHUA);
-	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
 	like($r, qr/Platform Name:.*NoMatch/, 'Get Platform Name using Client Hint');
-	like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using Client Hint');
-	like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using Client Hint');
-	like($r, qr/Browser Version:.*90/, 'Get Browser Version using Client Hint');
+	SKIP: {
+		skip 'the Lite data file gives no browser for Sec-CH-UA alone', 4
+			if $t_lite;
+		like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
+		like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using Client Hint');
+		like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using Client Hint');
+		like($r, qr/Browser Version:.*90/, 'Get Browser Version using Client Hint');
+	}
 
 	$r = get_with_ua('/response.html', $chromeUserAgent);
 	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
@@ -135,10 +141,8 @@ like($r, qr/<a href="https:\/\/51degrees\.com\/device-detection\?utm_source=code
 
 # Print out warnings at the end for user attention
 if ($t_lite) {
-    print "WARNING: Client Hints response headers feature test will not be run \n";
-    print "         as the Lite version of data file does not contains the \n";
-    print "         required properties. Please consider to obtain a data \n";
-    print "         file that have at least the SetHeaderBrowserAccept-CH,\n";
-    print "         SetHeaderPlatformAccept-CH and \n";
-    print "         SetHeaderHardwareAccept-CH supported.\n";
+    print "WARNING: Four client hints checks of the response headers example\n";
+    print "         were skipped, as the Lite data file gives no browser for a\n";
+    print "         request with Sec-CH-UA alone. Run the tests with a paid\n";
+    print "         data file to include them.\n";
 }
