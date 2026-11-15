@@ -355,6 +355,12 @@ ngx_http_51D_ipi_post_conf(ngx_conf_t *cf)
 		return NGX_OK;
 	}
 
+	// nginx -s only sends a signal to the running master, which reads the
+	// data file itself, so this process neither reads it nor needs memory.
+	if (ngx_process == NGX_PROCESS_SIGNALLER) {
+		return NGX_OK;
+	}
+
 	// Initialise the shared memory zone for the resource manager.
 	resourceManagerName.data =
 		(u_char *) "51Degrees Shared Resource Manager IPI";
