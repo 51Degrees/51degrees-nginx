@@ -39,6 +39,9 @@ if (scalar(@ARGV) > 0 && index($ARGV[0], "51Degrees-Lite") == -1) {
 # hardware properties, which the Lite data file does not have.
 $n += $t_lite ? 3 : 5;
 
+# The five Accept-CH response header tests run on any data file.
+$n += 5;
+
 my $t = Test::Nginx->new()->has(qw/http/)->plan($n)
 	->write_file_expand('nginx.conf', <<'EOF');
 
@@ -665,27 +668,29 @@ if (!$t_lite) {
 # Test response headers
 ###############################################################################
 
-# TODO: Enable and UACH is supported
-if (!$t_lite && 0) {
+# Accept-CH response headers. The Lite data file has the SetHeader
+# properties too, so these run on any data file. Header names are not case
+# sensitive, so neither are the checks.
+{
 	# Set Client Hints response headers locally
 	$r = get_with_ua('/clienthints', $chrome89UserAgent);
-	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/, 'Set Client Hints response header locally.');
+	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/i, 'Set Client Hints response header locally.');
 
 	# Set Client Hints response headers locally
 	$r = get_with_ua_common('localhost1', '/clienthints', $chrome89UserAgent);
-	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/, 'Set Client Hints response header locally.');
+	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/i, 'Set Client Hints response header locally.');
 
 	# Set No Client Hints response headers
 	$r = get_with_ua('/clienthintsoff', $chrome89UserAgent);
-	unlike($r, qr/Accept-CH: SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/, 'Set No Client Hints response header locally.');
+	unlike($r, qr/Accept-CH: SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/i, 'Set No Client Hints response header locally.');
 
 	# No Client Hints response headers set. Relies on Main and Server settings.
 	$r = get_with_ua('/clienthintsnone', $chrome89UserAgent);
-	unlike($r, qr/Accept-CH: SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/, 'Set Client Hints response header locally.');
+	unlike($r, qr/Accept-CH: SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/i, 'Set Client Hints response header locally.');
 
 	# Append Client Hints to already create headers.
 	$r = get_with_ua_common('localhost', '/addchheaders', $chrome89UserAgent);
-	like($r, qr/Accept-CH: Test1,Test2,Test3,SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/, 'Append Client Hints to existing headers.');
+	like($r, qr/Accept-CH: Test1,Test2,Test3,SEC-CH-[a-zA-Z-]+(,SEC-CH-[a-zA-Z-]+)*/i, 'Append Client Hints to existing headers.');
 }
 
 ###############################################################################
