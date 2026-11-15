@@ -17,6 +17,8 @@ use File::Copy;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../nginx-tests/lib';
+use lib '../lib';
+use FiftyOneDataFiles qw(ipi_file_path);
 use Test::Nginx;
 use URI::Escape;
 use POSIX qw/ WNOHANG /;
@@ -59,9 +61,9 @@ sub read_example($) {
 
 # The IP intelligence data file is optional for the test suite. Skip the
 # tests if it is not present.
-my $ipiFilePath = $ENV{TEST_FILE_PATH_IPI};
+my $ipiFilePath = ipi_file_path();
 if (!defined $ipiFilePath || !-e $ipiFilePath) {
-	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
+	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 
 my $t = Test::Nginx->new()->has(qw/http/)->plan(8);

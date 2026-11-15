@@ -12,15 +12,18 @@ use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
+use lib '../lib';
+use FiftyOneDataFiles qw(ipi_file_path);
+
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 # The files that are refused are made from a good data file.
-my $goodFile = $ENV{TEST_FILE_PATH_IPI};
+my $goodFile = ipi_file_path();
 if (!defined $goodFile || !-e $goodFile) {
-	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
+	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 
 # Where the header of a data file holds its minor version and profile offset
