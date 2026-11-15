@@ -34,7 +34,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $n = 1;
+my $n = 3;
 my $t_lite = 1;
 
 # The Lite data file version does not contains properties that can be used
@@ -124,6 +124,11 @@ if ($t_lite) {
 else {
 	unlike($r, qr/contact-us/, 'No link with the Enterprise data file');
 }
+
+# The page ends with links to find out more, tagged for the example.
+like($r, qr/<h3>Find out more<\/h3>/, 'Find out more on the page');
+like($r, qr/<a href="https:\/\/51degrees\.com\/device-detection\?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-responseheaders-response&utm_term=device-detection">/,
+	'Find out more link tagged for the example');
 
 ###############################################################################
 

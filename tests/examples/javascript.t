@@ -31,7 +31,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(4);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(6);
 
 my $t_file = read_example('jsExample/javascript.conf');
 # Remove the documentation block
@@ -95,5 +95,12 @@ else {
 	unlike($r, qr/x-enterprise:/, 'No link with the Enterprise data file');
 	like($r, qr/Access-Control-Expose-Headers: \*/, 'The page can read the headers');
 }
+
+# The page the example opens ends with links to find out more, tagged for the
+# example.
+my $page = read_example('jsExample/index.html');
+like($page, qr/<h3>Find out more<\/h3>/, 'Find out more on the page');
+like($page, qr/<a href="https:\/\/51degrees\.com\/device-detection\?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-jsexample-index&utm_term=device-detection">/,
+	'Find out more link tagged for the example');
 
 ###############################################################################
