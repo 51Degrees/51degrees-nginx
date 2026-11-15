@@ -268,6 +268,7 @@ test-prep:
 		curl -fL "https://github.com/nginx/nginx-tests/archive/refs/heads/master.tar.gz" \
 		| tar -xzC tests/nginx-tests --strip-components 1; \
 	fi;
+	perl tests/sanitizer-check.pl tests/nginx-tests/lib/Test/Nginx.pm
 
 test-full:
 	$(MAKE) test TESTS="$(TESTS) tests/nginx-tests"
