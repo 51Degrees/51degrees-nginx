@@ -89,14 +89,15 @@ else
 		MODULE_ARGS := --add-module=$(CURDIR)/51Degrees_ipi_module
 		# Only the IP intelligence example uses just the IP intelligence module.
 		EXAMPLE_TESTS := tests/examples/ipiGettingStarted.t \
-			tests/examples/ipiBadDataFile.t
+			tests/examples/ipiBadDataFile.t tests/examples/signalBadDataFile.t
 	else
 		MODULE_ARGS := --add-module=$(CURDIR)/51Degrees_hash_module
 		# The device detection examples use only the device detection module.
 		# The mixed example needs both modules and so cannot run statically.
 		EXAMPLE_TESTS := tests/examples/config.t tests/examples/gettingStarted.t \
 			tests/examples/matchMetrics.t tests/examples/matchQuery.t \
-			tests/examples/responseHeader.t tests/examples/javascript.t
+			tests/examples/responseHeader.t tests/examples/javascript.t \
+			tests/examples/signalBadDataFile.t
 	endif
 	# A static build links the module into the Nginx binary, so there is
 	# no module to load and a load_module directive would fail to open the
