@@ -93,7 +93,7 @@ $r = request('/match', $firefox);
 like($r, qr/^x-platform: Windows\r$/m, 'Another device is matched meanwhile');
 IO::Socket::INET->new(Proto => 'tcp', PeerAddr => '127.0.0.1:8082')
 	or die "Can't let the upstream go: $!\n";
-$r = http_end($s);
+$r = Test::Nginx::http_end($s);
 print "# The answer from the upstream location:\n";
 print "# $_\n" for split(/\r?\n/, $r);
 my $body = body($r);
