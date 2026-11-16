@@ -277,6 +277,13 @@ The workflows call the shared workflows in
 nightly package update, so do not edit the versions by hand. The nightly
 submodule update moves `cxx` with a pull request into `rc`.
 
+The tests use NGINX's own test library, which `make` downloads into
+`tests/nginx-tests` and which fails a test on any line of the error log that
+names a sanitizer. `tests/sanitizer-check.pl` leaves out one false warning,
+"ptrace appears to be blocked", which LeakSanitizer on Ubuntu 26.04 prints
+when an NGINX worker's SIGCHLD handler reaps the child that the sanitizer
+forks to try ptrace, before the sanitizer waits for it.
+
 ## Versions
 
 `ci/get-next-package-version.ps1` works out the version from the release tags
