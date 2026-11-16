@@ -34,7 +34,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $n = 0;
+my $n = 13;
 my $t_lite = 1;
 
 # The Lite data file version does not contains properties that can be used
@@ -98,31 +98,42 @@ my $chromeUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML
 # Test responseHeader.conf example.
 ###############################################################################
 
-# TODO: Enable when UACH is supported
-if (!$t_lite && 0) {
+# The checks of the page, which run on any data file. Header names are not
+# case sensitive, so neither are the Accept-CH checks. The example says a
+# request with Sec-CH-UA and no User-Agent gives the browser, but neither the
+# Lite nor the paid data file gives one, so those four checks are skipped.
+{
 	my $r = get_with_ch_ua('/response.html', $chromeCHUA);
-	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/, 'Response Header');
 	like($r, qr/Platform Name:.*NoMatch/, 'Get Platform Name using Client Hint');
-	like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using Client Hint');
-	like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using Client Hint');
-	like($r, qr/Browser Version:.*90/, 'Get Browser Version using Client Hint');
+	SKIP: {
+		skip 'no data file gives a browser for Sec-CH-UA without a User-Agent', 4;
+		like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
+		like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using Client Hint');
+		like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using Client Hint');
+		like($r, qr/Browser Version:.*90/, 'Get Browser Version using Client Hint');
+	}
 
 	$r = get_with_ua('/response.html', $chromeUserAgent);
-	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/, 'Response Header');
+	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
 	like($r, qr/Platform Name:.*Linux/, 'Get Platform Name using User Agent');
 	like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using User Agent');
 	like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using User Agent');
 	like($r, qr/Browser Version:.*90/, 'Get Browser Version using User Agent');
 }
 
-###############################################################################
-
-# Print out warnings at the end for user attention
+# The hardware properties are only in the Enterprise data file. On the free
+# Lite data file the page links to ask for a copy.
+my $r = get_with_ua('/response.html', $chromeUserAgent);
 if ($t_lite) {
-    print "WARNING: Client Hints response headers feature test will not be run \n";
-    print "         as the Lite version of data file does not contains the \n";
-    print "         required properties. Please consider to obtain a data \n";
-    print "         file that have at least the SetHeaderBrowserAccept-CH,\n";
-    print "         SetHeaderPlatformAccept-CH and \n";
-    print "         SetHeaderHardwareAccept-CH supported.\n";
+	like($r, qr/<a href="https:\/\/51degrees\.com\/contact-us\?[^"]*">Contact us<\/a>/, 'Link to ask for the Enterprise data file');
 }
+else {
+	unlike($r, qr/contact-us/, 'No link with the Enterprise data file');
+}
+
+# The page ends with links to find out more, tagged for the example.
+like($r, qr/<h3>Find out more<\/h3>/, 'Find out more on the page');
+like($r, qr/<a href="https:\/\/51degrees\.com\/device-detection\?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-responseheaders-response&utm_term=device-detection">/,
+	'Find out more link tagged for the example');
+
+###############################################################################

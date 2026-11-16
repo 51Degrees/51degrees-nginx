@@ -30,6 +30,24 @@ try {
     if ($FullTests -eq $True) {
         $env:ALLOW_PASSING_TODOS = 'yep' # don't consider Nginx's todo tests as failures
 
+        # Some of NGINX's own tests give the old worker 6 seconds to exit after a
+        # reload, which a GitHub runner does not always manage, with the module
+        # loaded or not, so both full runs give them 30 seconds.
+        $wait = '(?m)for \(1 \.\. 30\) \{(\r?\n[^\n]*read_file\(''error\.log''\)[^\n]*exited with code)'
+        $patched = @()
+        foreach ($file in Get-ChildItem tests/nginx-tests -Filter *.t -ErrorAction SilentlyContinue) {
+            $text = Get-Content -Raw $file.FullName
+            if ($text -match $wait) {
+                Set-Content -NoNewline -Path $file.FullName -Value ($text -replace $wait, 'for (1 .. 150) {$1')
+                $patched += $file.Name
+            }
+        }
+        if ($patched.Count -gt 0) {
+            Write-Host "The reload waits up to 30 seconds in $($patched -join ', ')"
+        } else {
+            Write-Host "::warning::No reload wait was found in NGINX's tests, so none is changed"
+        }
+
         # If full tests are requested, then run the full test suite (NGINX core tests, with the module enabled)
         Write-Host "Running full NGINX unit tests"
         make test-full DONT_CLEAN_TESTS=1 "51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Full.xml || $($failed = $true)
@@ -44,7 +62,7 @@ try {
         $env:TEST_NGINX_BINARY="/usr/sbin/nginx"
         $env:TEST_NGINX_GLOBALS="mgmt {license_token /etc/nginx/license.jwt;} load_module $repo/build/modules/ngx_http_51D_module.so;"
         $env:TEST_NGINX_GLOBALS_HTTP="51D_file_path $repo/cxx/data/device-detection/TAC-HashV41.hash;"
-        prove --formatter TAP::Formatter::JUnit -v tests/51degrees.t tests/nginx-tests :: TAC-HashV41.hash > $results/${Name}_Full_Plus.xml || $($failed = $true)
+        prove --formatter TAP::Formatter::JUnit -v tests/51degrees.t tests/51degrees_own_match.t tests/nginx-tests :: TAC-HashV41.hash > $results/${Name}_Full_Plus.xml || $($failed = $true)
         # Unset the environment variables for future tests.
         $env:TEST_NGINX_BINARY=""
         $env:TEST_NGINX_GLOBALS=""

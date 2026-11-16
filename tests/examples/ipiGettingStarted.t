@@ -64,7 +64,7 @@ if (!defined $ipiFilePath || !-e $ipiFilePath) {
 	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(6);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(10);
 
 my $t_file = read_example('gettingStarted.conf');
 # Remove the documentation block
@@ -111,23 +111,40 @@ my $knownIp = '212.58.224.22';
 ###############################################################################
 
 my $r = get_uri('/ipi?client_ip=' . $knownIp);
-like($r, qr/x-asn: .+/, 'ASN name set (client IP)');
-like($r, qr/x-asn-query: .+/, 'ASN name set (query IP)');
-unlike($r, qr/x-asn-query: (NoMatch)?\r/, 'Query IP matched');
+like($r, qr/x-registered-name: .+/, 'Registered name set (client IP)');
+like($r, qr/x-registered-name-query: .+/, 'Registered name set (query IP)');
+unlike($r, qr/x-registered-name-query: (NoMatch)?\r/, 'Query IP matched');
+
+# The location properties are only in the Enterprise data file. On a free
+# data file they read NoMatch, and x-enterprise links to ask for a copy.
+if (index($ipiFilePath, 'Enterprise') == -1) {
+	like($r, qr/x-location-query: NoMatch,NoMatch,NoMatch\r/, 'Location needs the Enterprise data file');
+	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
+}
+else {
+	unlike($r, qr/x-location-query: .*NoMatch/, 'Location matched');
+	unlike($r, qr/x-enterprise:/, 'No link with the Enterprise data file');
+}
 
 # Where the client_ip query argument is absent the directive which uses
 # $arg_client_ip falls back to the client IP address, so both headers
 # carry the same value.
 $r = get_uri('/ipi');
-my ($asn) = $r =~ /x-asn: (.*)\r/;
-my ($asnQuery) = $r =~ /x-asn-query: (.*)\r/;
-like($r, qr/x-asn-query: .+/, 'ASN name set without client_ip argument');
-is($asnQuery, $asn, 'Empty variable falls back to the client IP match');
+my ($registered) = $r =~ /x-registered-name: (.*)\r/;
+my ($registeredQuery) = $r =~ /x-registered-name-query: (.*)\r/;
+like($r, qr/x-registered-name-query: .+/, 'Registered name set without client_ip argument');
+is($registeredQuery, $registered, 'Empty variable falls back to the client IP match');
 
 # The client IP address text held by nginx is not null terminated, so a
 # parse failure here indicates the module has passed it to the engine
 # without taking a null terminated copy.
 unlike($t->read_file('error.log'), qr/IP address format is incorrect/,
 	'Client IP address parsed');
+
+# The example ends its own headers with where to find out more.
+my $findOutMore = 'This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about IP intelligence at https://51degrees.com/ip-intelligence?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=ip-intelligence and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=pricing';
+like($r, qr/^x-find-out-more: \Q$findOutMore\E\r$/m, 'Find out more');
+unlike($r, qr/\nx-find-out-more:[^\n]*\n(?:[^\n]*\n)*?x-/,
+	'No example header after Find out more');
 
 ###############################################################################

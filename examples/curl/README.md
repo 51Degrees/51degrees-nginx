@@ -31,39 +31,44 @@ $ curl  --head \
         http://127.0.0.1:8080/hash
 
 HTTP/1.1 200 OK
-Server: nginx/1.20.0
-Date: Wed, 16 Aug 2023 16:03:00 GMT
+Server: nginx/1.29.3
+Date: Sat, 14 Nov 2026 04:31:46 GMT
 Content-Type: text/plain
 Content-Length: 1
-Last-Modified: Wed, 16 Aug 2023 13:41:12 GMT
+Last-Modified: Sat, 14 Nov 2026 04:31:44 GMT
 Connection: keep-alive
-ETag: "64dcd1f8-1"
+ETag: "6af7e430-1"
 x-device-type: NoMatch
 x-platform-name: Windows
 x-platform-version: 11.0
 x-browser-name: Edge (Chromium) for Windows
 x-browser-version: 114.0
 x-is-mobile: False
+x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-curl-nginx.conf&utm_term=enterprise-data-file
+x-find-out-more: This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about device detection at https://51degrees.com/device-detection?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-curl-nginx.conf&utm_term=device-detection and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-curl-nginx.conf&utm_term=pricing
 Accept-Ranges: bytes
 ```
 
 To test feeding the evidence via the PHP libcurl - use `curl.php` script:
 
 ```
-$ php examples/curl/curl.php 
+$ php examples/curl/curl.php
+=== Desktop browser with client hints ===
 HTTP/1.1 200 OK
-Server: nginx/1.20.0
-Date: Wed, 16 Aug 2023 16:01:19 GMT
+Server: nginx/1.29.3
+Date: Sat, 14 Nov 2026 04:31:46 GMT
 Content-Type: text/plain
 Content-Length: 1
-Last-Modified: Wed, 16 Aug 2023 13:41:12 GMT
+Last-Modified: Sat, 14 Nov 2026 04:31:44 GMT
 Connection: keep-alive
-ETag: "64dcd1f8-1"
+ETag: "6af7e430-1"
 x-device-type: NoMatch
 x-platform-name: Windows
 x-platform-version: 11.0
 x-browser-name: Edge (Chromium) for Windows
 x-browser-version: 114.0
 x-is-mobile: False
+x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-curl-nginx.conf&utm_term=enterprise-data-file
+x-find-out-more: This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about device detection at https://51degrees.com/device-detection?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-curl-nginx.conf&utm_term=device-detection and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-curl-nginx.conf&utm_term=pricing
 Accept-Ranges: bytes
 ```

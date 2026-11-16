@@ -34,7 +34,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(3);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(7);
 
 my $t_file = read_example('gettingStarted.conf');
 # Remove the documentation block
@@ -80,5 +80,21 @@ like($r, qr/x-mobile: True/, 'Mobile match (single User-Agent)');
 like($r, qr/x-device: [a-zA-Z ]+,[a-zA-Z ]+/, 'Mobile match (single User-Agent)');
 like($r, qr/x-device-hinted: [a-zA-Z ]+,[a-zA-Z ]+/, 'Mobile match (single User-Agent)');
 
-###############################################################################
+# The hardware properties are only in the Enterprise data file. On the free
+# Lite data file they read NoMatch, and x-enterprise links to ask for a copy.
+if (index($ENV{TEST_FILE_PATH}, '51Degrees-Lite') != -1) {
+	like($r, qr/x-hardware: NoMatch,NoMatch,NoMatch\r/, 'Hardware needs the Enterprise data file');
+	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
+}
+else {
+	unlike($r, qr/x-hardware: .*NoMatch/, 'Hardware matched');
+	unlike($r, qr/x-enterprise:/, 'No link with the Enterprise data file');
+}
 
+# The example ends its own headers with where to find out more.
+my $findOutMore = 'This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about device detection at https://51degrees.com/device-detection?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=device-detection and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=pricing';
+like($r, qr/^x-find-out-more: \Q$findOutMore\E\r$/m, 'Find out more');
+unlike($r, qr/\nx-find-out-more:[^\n]*\n(?:[^\n]*\n)*?x-/,
+	'No example header after Find out more');
+
+###############################################################################

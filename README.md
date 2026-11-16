@@ -60,17 +60,22 @@ This saves the file as `cxx/data/device-detection/51Degrees-LiteV4.1.hash`.
 A file that is already there is kept. Add `-u` to replace it when a newer
 version is available.
 
+`make install`, `make test` and `make test-examples` run the script for the
+free file they use by default when it is missing, so a fresh clone needs no
+step of its own. A file named with `51DEGREES_DD_PATH` or `51DEGREES_IPI_PATH`
+is never downloaded.
+
 ### IP Intelligence data file
 
-The free `51Degrees-IPIV4AsnIpiV41.ipi` file contains the Asn properties (Asn and AsnName). This file is used by default for the IP Intelligence examples and tests. Download it in the same way.
+The free `51Degrees-LiteV41.ipi` file contains the registration properties (RegisteredCountry, RegisteredName and RegisteredOwner). This file is used by default for the IP Intelligence examples and tests. Download it in the same way.
 
 ```
-sh cxx/data/get-data-files.sh 51Degrees-IPIV4AsnIpiV41.ipi
+sh cxx/data/get-data-files.sh 51Degrees-LiteV41.ipi
 ```
 
-This saves the file as `cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi`.
+This saves the file as `cxx/data/ip-intelligence/51Degrees-LiteV41.ipi`.
 
-The same script downloads a free, 'lite' IP Intelligence data file, `51Degrees-LiteV41.ipi`, which has a different, reduced set of properties (RegisteredCountry, RegisteredName and RegisteredOwner). Note that the version of the downloaded data file must match the version expected by the IP Intelligence sources in the cxx sub-module, as with any 51Degrees data file. To obtain a file with the complete set of properties see the [51Degrees website](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=ip-intelligence-data-file).
+The same script downloads a second free IP Intelligence data file, `51Degrees-IPIV4AsnIpiV41.ipi`, which is far smaller and has the Asn properties (Asn and AsnName) instead. The performance test uses it. Note that the version of the downloaded data file must match the version expected by the IP Intelligence sources in the cxx sub-module, as with any 51Degrees data file. To obtain a file with the complete set of properties see the [51Degrees website](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=readme.md&utm_term=ip-intelligence-data-file).
 
 ## Quick start (Device Detection)
 
@@ -127,7 +132,7 @@ nginx -p . -s quit
 
 ## Quick start (IP Intelligence)
 
-IP Intelligence works in the same way, using its own module, data file and match directive. The following configuration sets a request header from the ASN name of the network of the client IP address, or of an IP address supplied as a query argument. The AsnName property is available in the free `51Degrees-IPIV4AsnIpiV41.ipi` file, which is downloaded as described in [Data files](#data-files). Data files with a fuller set of properties provide properties such as RegisteredName, RegisteredCountry and RegisteredOwner which can be requested in the same way.
+IP Intelligence works in the same way, using its own module, data file and match directive. The following configuration sets a request header from the registered name of the network of the client IP address, or of an IP address supplied as a query argument. The RegisteredName property is in the free `51Degrees-LiteV41.ipi` file, which is downloaded as described in [Data files](#data-files), with RegisteredCountry and RegisteredOwner. The free `51Degrees-IPIV4AsnIpiV41.ipi` file has AsnName and Asn instead, and the Enterprise file has every property, each requested in the same way.
 ```
 # Specify the module to load. Add an additional load_module line for the
 # device detection module to use both engines together.
@@ -144,17 +149,17 @@ http {
 
         location /test {
             # Perform a match using the client IP address.
-            # Set the request header 'x-asn' to the returned value for
-            # property 'AsnName'.
-            51D_match_ipi x-asn AsnName;
+            # Set the request header 'x-registered-name' to the returned
+            # value for property 'RegisteredName'.
+            51D_match_ipi x-registered-name RegisteredName;
 
             # Perform a match using the IP address supplied in the
             # 'client_ip' query argument.
-            51D_match_ipi x-asn-query AsnName $arg_client_ip;
+            51D_match_ipi x-registered-name-query RegisteredName $arg_client_ip;
 
             # Set the response headers using the request headers.
-            add_header x-asn $http_x_asn;
-            add_header x-asn-query $http_x_asn_query;
+            add_header x-registered-name $http_x_registered_name;
+            add_header x-registered-name-query $http_x_registered_name_query;
         }
     }
 }
@@ -166,6 +171,8 @@ curl "http://localhost:8888/test?client_ip=212.58.224.22" -I
 Values are returned in the form `"value":weight` where the weight indicates the confidence the engine has in the value.
 
 Note the use of the `client_ip` query string argument here and throughout the examples and tests. When running on a local machine the client IP address reported by NGINX is a loopback or private network address, which has no useful IP Intelligence associated with it. Passing a real IP address in the `client_ip` query string argument, read by the `51D_match_ipi` directive through the `$arg_client_ip` variable, overrides the reported client IP address for that match. In production, where requests arrive from real client IP addresses, the variable argument can be omitted so the match uses the client IP address directly, or pointed at another variable such as a forwarded header from an upstream proxy.
+
+The IP address is read only when all of the value is one IPv4 or IPv6 address, which may have a port, as in `212.58.224.22:80` or `[2001:db8::1]:80`, as the [IP Intelligence specification](https://github.com/51Degrees/specifications/blob/6570727d2af6967390d3c4fbec77b9cf0540d3f3/ip-intelligence-specification/pipeline-elements/ip-intelligence-on-premise.md#reading-the-client-ip-value) says. Any other value gives `NoMatch` and is not logged as an error, such as a list like the value of `X-Forwarded-For`, a prefix length like `/24`, or text after the address. The first address in a list is not always one you can trust, so choose the address in the configuration, for example with the [real IP module](https://nginx.org/en/docs/http/ngx_http_realip_module.html).
 
 The above gave you a quick overview of how to use the 51Degrees NGINX module. However, that used a pre-built binaries of 51Degrees module, and in some cases, it might not work on your target machine due to the differences in the build environment that was used. In those cases, you will have options to rebuild the module yourself. This is detailed in the [Build and Test](#build-and-test-linux) section.
 
@@ -192,16 +199,19 @@ Below is the list of directives that can be used with the 51Degrees modules. The
 |**DEPRECATED** Syntax: `51D_use_performance_graph` *on \| off*;<br>Default: 51D_use_performance_graph off;<br>Context: main<br>Specify if performance graph should be used in detection. **DEPRECATED**: Has no effect on configuration, the data file has a single (predictive) graph that is always used.|
 |**DEPRECATED** Syntax: `51D_use_predictive_graph` *on \| off*;<br>Default: 51D_use_predictive_graph on;<br>Context: main<br>Specify if predictive graph should be used in detection. **DEPRECATED**: Has no effect on configuration, the data file has a single graph that is always used.|
 |Syntax: `51D_value_separator` *separator*;<br>Default: 51D_value_separator ',';<br>Context: main<br>Specify the separator to be used in the value string returned from a detection. Each value in the returned result string is correspond to a requested property.|
-|Syntax: `51D_match_ua` *header* *properties* \[*argument*\];<br>Default: ---<br>Context: main, server, `location` (**NOTE**: This directive can be used in main, server and location blocks. Specified properties are aggregated and eventually queried in the location. *header* value is set after the query is performed and is only available within `location` block)<br>Perform a detection using a single request header `User-Agent`. *header* specifies which request header the returned *properties* values should be stored at. *properties* is a comma separated list string. *argument* specifies if a `User-Agent` is supplied as a query argument. This will override the value in the `User-Agent` header. The *argument* is optional.<br>If a property is not available for any reason, the value being returned for that property will be `NA`<br>This directive was previously known as `51D_match_single` (name deprecated)|
-|Syntax: `51D_match_ua_client_hints` *header* *properties* \[*argument*\];<br>Default: ---<br>Context: main, server, `location` (**NOTE**: This directive can be used in main, server and location blocks. Specified properties are aggregated and eventually queried in the location. *header* value is set after the query is performed and is only available within `location` block)<br>Perform a detection using request headers `User-Agent` and `Sec-CH-UA-*`. *header* specifies which request header the returned *properties* values should be stored at. *properties* is a comma separated list string. *argument* specifies if a `User-Agent` is supplied as a query argument. This will override the value in the `User-Agent` header. The *argument* is optional.<br>If a property is not available for any reason, the value being returned for that property will be `NA`|
+|Syntax: `51D_match_ua` *header* *properties* \[*argument*\];<br>Default: ---<br>Context: main, server, `location` (**NOTE**: This directive can be used in main, server and location blocks. Specified properties are aggregated and eventually queried in the location. *header* value is set after the query is performed and is only available within `location` block)<br>Perform a detection using a single request header `User-Agent`. *header* specifies which request header the returned *properties* values should be stored at. *properties* is a comma separated list string. *argument* specifies if a `User-Agent` is supplied as a query argument. This will override the value in the `User-Agent` header. The *argument* is optional. Where the variable is empty, or not set for the request, the `User-Agent` header is used instead. A match is only reused when it was made for the same `User-Agent` in the same request.<br>If a property is not available for any reason, the value being returned for that property will be `NA`<br>This directive was previously known as `51D_match_single` (name deprecated)|
+|Syntax: `51D_match_ua_client_hints` *header* *properties* \[*argument*\];<br>Default: ---<br>Context: main, server, `location` (**NOTE**: This directive can be used in main, server and location blocks. Specified properties are aggregated and eventually queried in the location. *header* value is set after the query is performed and is only available within `location` block)<br>Perform a detection using request headers `User-Agent` and `Sec-CH-UA-*`. *header* specifies which request header the returned *properties* values should be stored at. *properties* is a comma separated list string. *argument* specifies if a `User-Agent` is supplied as a query argument. This will override the value in the `User-Agent` header. The *argument* is optional. Where the variable is empty, or not set for the request, the `User-Agent` header is used instead.<br>If a property is not available for any reason, the value being returned for that property will be `NA`|
 |Syntax: `51D_match_all` *header* *properties*;<br>Default: ---<br>Context: main, server, `location` (**NOTE**: This directive can be used in main, server and location blocks. Specified properties are aggregated and eventually queried in the location. *header* value is set after the query is performed and is only available within `location` block)<br>Perform a detection using all headers, query argument and cookie from a http request. *header* specifies which request header the returned *properties* values should be stored at. *properties* is a comma separated list string.<br>If a property is not available for any reason, the value being returned for that property will be `NA`|
 |Syntax: `51D_match_ipi` *header* *properties* \[*argument*\];<br>Default: ---<br>Context: main, server, `location` (**NOTE**: This directive can be used in main, server and location blocks. Specified properties are aggregated and eventually queried in the location. *header* value is set after the query is performed and is only available within `location` block)<br>Perform an IP intelligence match using the client IP address. *header* specifies which request header the returned *properties* values should be stored at. *properties* is a comma separated list string. *argument* specifies a variable (e.g. a query argument such as `$arg_client_ip`) holding an IP address to be used in place of the client IP address. The *argument* is optional. Where the variable is empty, or not set for the request, the client IP address is used instead. A lookup is only performed when the IP address differs from the one already matched for the request, otherwise the existing result is reused.<br>If a property is not available for any reason, the value being returned for that property will be `NoMatch`. Requires `51D_file_path_ipi` to be set.|
-|Syntax: `51D_get_javascript_single` *javascript_property* \[*argument*\];<br>Default: ---<br>Context: location<br>Perform a detection using a single request header `User-Agent`. The returned value of *javascript_property* is set in the response body. This works in a similar way as CDN to serve static content. *argument* specifies if a `User-Agent` is supplied as a query argument. This will override the value in the `User-Agent` header. The *argument* is optional.<br>If the Javascript property is not available for any reason, a Javascript block comment will be returned so that it will not cause syntax error when the client executes it.<br>The whole response body is used for the returned content so only one of these directives can be used in a single location block. Also, since the static content does not actually exist as a static file, the nginx http core module will log an error, so it is recommended to use this directive with [log_not_found](http://nginx.org/en/docs/http/ngx_http_core_module.html#log_not_found) set to off.|
+|Syntax: `51D_get_javascript_single` *javascript_property* \[*argument*\];<br>Default: ---<br>Context: location<br>Perform a detection using a single request header `User-Agent`. The returned value of *javascript_property* is set in the response body. This works in a similar way as CDN to serve static content. *argument* specifies if a `User-Agent` is supplied as a query argument. This will override the value in the `User-Agent` header. The *argument* is optional. Where the variable is empty, or not set for the request, the `User-Agent` header is used instead.<br>If the Javascript property is not available for any reason, a Javascript block comment will be returned so that it will not cause syntax error when the client executes it.<br>The whole response body is used for the returned content so only one of these directives can be used in a single location block. Also, since the static content does not actually exist as a static file, the nginx http core module will log an error, so it is recommended to use this directive with [log_not_found](http://nginx.org/en/docs/http/ngx_http_core_module.html#log_not_found) set to off.|
 |Syntax: `51D_get_javascript_all` *javascript_property*;<br>Default: ---<br>Context: location<br>Perform a detection using all headers, cookie and query arguments from a http request. The returned value of the *javascript_property* is set in the response body. This works in a similar way as CDN to serve static content.<br>If the Javascript property is not available for any reason, a Javascript block comment will be returned so that it will not cause syntax error when the client executes it.<br>The whole response body is used for the returned content so only one of these directives can be used in a single location block. Also, since the static content does not actually exist as a static file, the nginx http core module will log an error, so it is recommended to use this directive with [log_not_found](http://nginx.org/en/docs/http/ngx_http_core_module.html#log_not_found) set to off.|
-|Syntax: `51D_set_resp_headers` *on \| off*;<br>Default: 51D_set_resp_headers  off<br>Context: main, server, location<br>Allow Client Hints to be set in response headers where it is applicable to the user agent (e.g. Chrome 89 or above) so that more evidence can be returned in subsequent requests, allowing more accurate detection. Value set in a block overwrites values set in precedent blocks (e.g. value set in `location` block will overwrite value set in `server` and `main` blocks). This will only be available from the 4.3.0 version onwards.|
+|Syntax: `51D_set_resp_headers` *on \| off*;<br>Default: 51D_set_resp_headers  off<br>Context: main, server, location<br>Allow Client Hints to be set in response headers where it is applicable to the user agent (e.g. Chrome 89 or above) so that more evidence can be returned in subsequent requests, allowing more accurate detection. Value set in a block overwrites values set in precedent blocks (e.g. value set in `location` block will overwrite value set in `server` and `main` blocks). This will only be available from the 4.3.0 version onwards.<br>Each response this applies to makes a match of all the headers, cookies and query arguments of its request, in the same way as `51D_match_all`, and its headers are set from the `SetHeader` properties of that match. A property whose value is `Unknown` adds nothing, each client hint is listed once, and a header with nothing to list is not set, so a browser which does not support Client Hints is sent no `Accept-CH` header.|
 
 ## Required properties
 The properties named in the Device Detection match and javascript directives form the required properties which the engine is initialized with. Detection only evaluates the components which the required properties belong to, so naming only the properties that are needed makes each match faster and reduces the shared memory size. Match metric properties (Drift, Difference, Method, MatchedNodes, UserAgents and DeviceId) are computed from the match itself and do not affect initialization. Directives which match on multiple headers also initialize the JavascriptGetHighEntropyValues property, so that decoded GetHighEntropyValues evidence can contribute to the match. All of the data file's properties are initialized when no data set properties are named in any directive, or when `51D_set_resp_headers` is on, as the SetHeader properties it uses are discovered from the data file rather than named in directives. The IP Intelligence module initializes its engine with the properties named in `51D_match_ipi` directives in the same way.
+
+## Header length limit
+A single header such as `User-Agent`, or a pseudo header (several headers read as one), is ignored if it is over 500 bytes. Detection carries on with the rest of the evidence and nothing is logged, so the answer is the same as for a request without that header. Neither module has a directive to raise the limit.
 
 ## Proxy passing
 When using the `proxy_pass` directive in a location block where a match directive is used, the properties selected are passed as additional HTTP headers with the name specified in the first argument of `51D_match_ua`/`51D_match_ua_client_hints`/`51D_match_all`/`51D_match_ipi`.
@@ -245,7 +255,7 @@ All examples are located in the `examples` folder. Device detection examples are
 |jsExample|Shows how to use 51D_get_javascript* directive to get the JavaScript to obtain further evidences from the client. To run this example, start NGINX with the included `javascript.conf` set as the configuration file. Once NGINX fully start, open `index.html` in a browser to see that the screen width is now set correctly.|
 <br>
 
-To run these examples, follow the instructions detailed in each example.
+To run an example, `make install` writes the getting started example for `API` as `build/nginx.conf`, and `EXAMPLE` names another in `examples/hash`, for example `make install EXAMPLE=config`, filling in its data file and creating the file it serves. Each example's comment gives its request.
 
 # Build and test (Linux)
 Before build and test the 51Degrees module, make sure to check out the project and all of its sub-modules.
@@ -277,8 +287,7 @@ To build the 51Degrees module, the following libraries are required.
 - C compiler that support C11 or above.
 - make
 - zlib1g-dev
-- libpcre3
-- libpcre3-dev
+- libpcre2-dev, which NGINX reads from 1.21.5. NGINX before 1.21.5 reads only PCRE1 (`libpcre3-dev`), which Ubuntu 26.04 does not have.
 - libatomic
 
 To build the modules only, run the following command. This will output `ngx_http_51D_module.so` and `ngx_http_51D_ipi_module.so` in the `build/modules` directory.
@@ -291,7 +300,7 @@ To build the modules and NGINX, run the following command.
 ```
 make install
 ```
-By default this will use the latest version of NGINX specified in the Makefile. To use a specific version of NGINX, run the above command with `FIFTYONEDEGREES_NGINX_VERSION` variable. e.g.
+By default this builds NGINX 1.29.3, the newest version CI builds and tests. To build another version of NGINX, run the above command with the `FIFTYONEDEGREES_NGINX_VERSION` variable, for example.
 ```
 make install FIFTYONEDEGREES_NGINX_VERSION=[Version]
 ```
@@ -353,9 +362,9 @@ make test 51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
 Note that when running NGINX itself the data file is always specified
 explicitly with the `51D_file_path` directive in the configuration file.
 
-The IP Intelligence tests resolve their data file in the same order. The `51DEGREES_IPI_PATH` environment variable provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/data/ip-intelligence` folder, it is deprecated and using it prints a make warning. When neither variable is set the free `51Degrees-IPIV4AsnIpiV41.ipi` file in that folder is used, which is downloaded as described in [Data files](#data-files). The IP Intelligence example tests are skipped when the file is not present. e.g.
+The IP Intelligence tests resolve their data file in the same order. The `51DEGREES_IPI_PATH` environment variable provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/data/ip-intelligence` folder, it is deprecated and using it prints a make warning. When neither variable is set the free `51Degrees-LiteV41.ipi` file in that folder is used, which is downloaded as described in [Data files](#data-files). The IP Intelligence example tests are skipped when the file is not present. e.g.
 ```
-make test-examples 51DEGREES_IPI_PATH=/path/to/51Degrees-IPIV4AsnIpiV41.ipi
+make test-examples 51DEGREES_IPI_PATH=/path/to/51Degrees-EnterpriseIpiV41.ipi
 ```
 
 ## Performance test

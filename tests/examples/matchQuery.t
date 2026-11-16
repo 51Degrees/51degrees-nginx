@@ -34,7 +34,7 @@ sub read_example($) {
 	return $content;
 }
 
-my $t = Test::Nginx->new()->has(qw/http/)->plan(2);
+my $t = Test::Nginx->new()->has(qw/http/)->plan(8);
 
 my $t_file = read_example('matchQuery.conf');
 # Remove documentation block
@@ -76,9 +76,33 @@ my $desktopUserAgent = 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:41.0) Gecko/20100
 # Test matchQuery.conf example.
 ###############################################################################
 
-my $r = get_with_ua('/query?User-Agent='.uri_escape($mobileUserAgent), $desktopUserAgent);
+# The variable of the single match reads the user_agent argument, and the
+# match of all evidence reads the argument named after the header.
+my $r = get_with_ua('/query?user_agent='.uri_escape($mobileUserAgent)
+	.'&User-Agent='.uri_escape($mobileUserAgent), $desktopUserAgent);
 like($r, qr/x-mobile-single: True/, 'Mobile match (single)');
 like($r, qr/x-mobile-all: True/, 'Mobile match (all)');
 
-###############################################################################
+# The hardware properties are only in the Enterprise data file. On the free
+# Lite data file they read NoMatch, and x-enterprise links to ask for a copy.
+if (index($ENV{TEST_FILE_PATH}, '51Degrees-Lite') != -1) {
+	like($r, qr/x-hardware: NoMatch,NoMatch,NoMatch\r/, 'Hardware needs the Enterprise data file');
+	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
+}
+else {
+	like($r, qr/x-hardware: (?![^\r]*NoMatch)[^\r]+\r/, 'Hardware matched');
+	unlike($r, qr/x-enterprise:/, 'No link with the Enterprise data file');
+}
 
+# Without the arguments both match the User-Agent header.
+$r = get_with_ua('/query', $desktopUserAgent);
+like($r, qr/x-mobile-single: False/, 'Desktop match without the argument (single)');
+like($r, qr/x-mobile-all: False/, 'Desktop match without the argument (all)');
+
+# The example ends its own headers with where to find out more.
+my $findOutMore = 'This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about device detection at https://51degrees.com/device-detection?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-matchquery.conf&utm_term=device-detection and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-matchquery.conf&utm_term=pricing';
+like($r, qr/^x-find-out-more: \Q$findOutMore\E\r$/m, 'Find out more');
+unlike($r, qr/\nx-find-out-more:[^\n]*\n(?:[^\n]*\n)*?x-/,
+	'No example header after Find out more');
+
+###############################################################################

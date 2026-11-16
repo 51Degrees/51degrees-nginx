@@ -35,8 +35,10 @@ On Ubuntu, CI installs the build tools with this command, on runners that
 already have gcc.
 
 ```
-sudo apt-get install make zlib1g-dev libpcre3 libpcre3-dev
+sudo apt-get install make zlib1g-dev libpcre2-dev
 ```
+
+NGINX reads PCRE2 from 1.21.5, and Ubuntu 26.04 has no PCRE1 (`libpcre3`).
 
 Clone the repository with its submodules.
 
@@ -58,30 +60,32 @@ stored in this repository. The `cxx` submodule holds the
 [data](https://github.com/51Degrees/data) repository as `cxx/data`, which has a
 link to each file, and a script downloads them into `cxx/data/device-detection`
 and `cxx/data/ip-intelligence`, where the `FILEPATH :=` and `FILEPATH_IPI :=`
-lines in `Makefile` look for them. Nothing in the build downloads a file, so
-download the Device Detection Lite file and the IP Intelligence Asn file
-first.
+lines in `Makefile` look for them. `make install` runs that script for the
+free file its `API` uses when it is missing (both for `mixed`), `make test`
+for the Lite file and `make test-examples` for both, so a fresh clone needs no
+step of its own. To fetch both before building, run the script yourself.
 
 ```
-sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-IPIV4AsnIpiV41.ipi
+sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-LiteV41.ipi
 ```
 
-The script keeps a file that is already there.
+The script keeps a file that is already there. A file named with
+`51DEGREES_DD_PATH` or `51DEGREES_IPI_PATH` is never downloaded.
 
 #### Check the files
 
 - `cxx/data/device-detection/51Degrees-LiteV4.1.hash` is more than 10 MB.
-- `cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi` is more than 1 MB.
+- `cxx/data/ip-intelligence/51Degrees-LiteV41.ipi` is more than 100 MB.
 
 ### Build
 
 ```
-make install FIFTYONEDEGREES_NGINX_VERSION=1.29.3
+make install
 ```
 
-1.29.3 is the nginx version of the first entry in `ci/options.json`, which CI
-builds and tests. Without the variable the Makefile builds nginx 1.20.0, which
-CI no longer builds. The build downloads the nginx source into `vendor`, builds
+The Makefile builds nginx 1.29.3, the version of the first entry in
+`ci/options.json`, which CI builds and tests. `FIFTYONEDEGREES_NGINX_VERSION`
+builds another version. The build downloads the nginx source into `vendor`, builds
 both modules into `build/modules`, puts the nginx program at `./nginx`, writes
 `build/nginx.conf` from `examples/hash/gettingStarted.conf`, and creates the
 empty file `build/html/hash` that the example serves.
@@ -113,7 +117,7 @@ For IP Intelligence, build again with `API=ipi`, which writes
 `build` and `./nginx`.
 
 ```
-make install API=ipi FIFTYONEDEGREES_NGINX_VERSION=1.29.3
+make install API=ipi
 ./nginx
 curl "localhost:8080/ipi?client_ip=212.58.224.22" -I
 ./nginx -s quit
@@ -126,6 +130,15 @@ network to report. `API=mixed` works in the same way for
 `/mixed`. The request it documents is
 `curl "localhost:8080/mixed?client_ip=212.58.224.22" -I -A "<the User-Agent above>"`.
 
+The other Device Detection examples run in the same way with `EXAMPLE`, which
+names the example in `examples/hash` that `make install` writes as
+`build/nginx.conf`. `make install EXAMPLE=config` writes
+`examples/hash/config.conf` and creates `build/html/config`, which it serves
+at `/config`. `EXAMPLE=matchMetrics` answers at `/metrics`,
+`EXAMPLE=matchQuery` at `/query?user_agent=<a User-Agent>`, and
+`EXAMPLE=responseHeaders/responseHeader` at `/response.html`. Each example's
+comment gives its request.
+
 On macOS, or anywhere Docker runs, the curl example builds the module in a
 Debian image.
 
@@ -136,9 +149,14 @@ docker run -d -p 8080:8080 51d-nginx-curl
 ```
 
 Then send the request that `examples/curl/README.md` gives, which asks for
-`http://127.0.0.1:8080/hash`. The image clones `main` from GitHub rather than
-using your checkout, builds the Makefile's default nginx 1.20.0, and loads only
-the Device Detection module, with `examples/curl/nginx.conf`.
+`http://127.0.0.1:8080/hash`, or run `examples/curl/curl.sh`, which sends it
+and one more. The image builds `main` from GitHub rather than your checkout,
+unless `--build-arg` names another `BRANCH` or one `COMMIT`, builds nginx
+1.29.3, which CI tests, and loads only the Device Detection module, with
+`examples/curl/nginx.conf`. The workflow
+`.github/workflows/docker-example.yml` builds the image from the commit the
+run checks out when a pull request changes the example or what the image
+builds, and checks `curl.sh` and `curl.php`.
 
 ### Correct output
 
@@ -150,11 +168,22 @@ HTTP/1.1 200 OK
 ...
 x-device: Mobile Safari,iOS
 x-mobile: True
+x-hardware: NoMatch,NoMatch,NoMatch
+x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=enterprise-data-file
+x-find-out-more: This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about device detection at https://51degrees.com/device-detection?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=device-detection and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-gettingstarted.conf&utm_term=pricing
 ...
 ```
 
 `x-device-hinted` has the same form, a browser name and a platform name
-separated by a comma.
+separated by a comma. `x-hardware` reads `NoMatch` for HardwareVendor,
+HardwareName and DeviceType, which only the Enterprise data file has, and
+`x-enterprise`, which is there only when they read `NoMatch`, says where to ask
+for a copy. With the Enterprise data file `x-hardware` holds their values and
+there is no `x-enterprise` header.
+
+Each example that answers with headers ends them with `x-find-out-more`,
+which gives the module and engine repositories and the 51degrees.com pages
+to read next. The example pages end with the same section.
 
 The IP Intelligence request answers with these lines, as
 `examples/ipi/gettingStarted.conf` documents.
@@ -162,23 +191,33 @@ The IP Intelligence request answers with these lines, as
 ```
 HTTP/1.1 200 OK
 ...
-x-asn-query: \"BBC\":1
+x-registered-name-query: \"UK-BBC-991005\":1
+x-location-query: NoMatch,NoMatch,NoMatch
+x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=enterprise-data-file
+x-find-out-more: This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about IP intelligence at https://51degrees.com/ip-intelligence?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=ip-intelligence and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=pricing
 ...
 ```
 
-`x-asn` holds the answer for the address the request came from. IP
+`x-registered-name` holds the answer for the address the request came from. IP
 Intelligence values take the form `"value":weight`, with each double quote
 escaped by a backslash in the header. A property the data file does not have
 reads `NoMatch` in both modules (`FIFTYONE_DEGREES_PROPERTY_NOT_AVAILABLE` in
 `51Degrees_hash_module/ngx_http_51D_module.c`, and its IP Intelligence
-counterpart). The Docker request answers with `x-platform-name`,
-`x-browser-name`, `x-is-mobile` and the other headers that
-`examples/curl/README.md` shows, and `x-device-type: NoMatch`, because the Lite
-file has no DeviceType.
+counterpart). `x-location-query` reads `NoMatch` for Country, Latitude and
+Longitude, which only the Enterprise data file has, and `x-enterprise` says
+where to ask for a copy. The mixed example answers with the headers of both.
+The Docker request answers with `x-platform-name`, `x-browser-name`,
+`x-is-mobile` and the other headers that `examples/curl/README.md` shows, and
+`x-device-type: NoMatch`, because the Lite file has no DeviceType, with
+`x-enterprise` saying where to ask for a copy. The configuration, match
+metrics and match query examples answer with `x-hardware` and `x-enterprise` in
+the same way,
+and the JavaScript example's `/overrides` adds `x-enterprise` when the data file
+has no ScreenPixelsWidthJavascript.
 
-The paid data files have many more properties, as the
-[pricing page](https://51degrees.com/pricing?utm_source=github&utm_medium=docs&utm_campaign=51degrees-nginx&utm_content=agents.md&utm_term=correct-output)
-describes.
+The Enterprise data files have many more properties.
+[Contact us](https://51degrees.com/contact-us?utm_source=github&utm_medium=docs&utm_campaign=51degrees-nginx&utm_content=agents.md&utm_term=correct-output)
+for a copy.
 
 ### Cloud examples
 
@@ -189,13 +228,15 @@ There are none. The nginx modules work only on-premise, with a data file.
 - **A data file that is not there.** `cxx/data` holds a `.link` for each file
   rather than the file. nginx then does not start, and its error log,
   `build/logs/error.log`, has a line starting with `51Degrees` that describes
-  the data file. Download the files and check their sizes as above.
+  the data file. This happens when a build names a file that is not there,
+  or when the download in `make install` failed. Download the files and check
+  their sizes as above.
 - **Missing submodules.** `make install` then stops at its first
   `cp cxx/src/...`, because the module sources come from the `cxx` submodule.
   A zip download of the repository has no submodules, so clone with Git.
-- **The nginx version.** Plain `make install` builds nginx 1.20.0. Give
-  `FIFTYONEDEGREES_NGINX_VERSION` as "Build" shows, so that you build a
-  version CI tests.
+- **The nginx version.** nginx before 1.21.5 needs PCRE1 (`libpcre3-dev`),
+  which Ubuntu 26.04 does not have, so `FIFTYONEDEGREES_NGINX_VERSION` set to
+  an older version fails there at nginx's `configure`.
 - **Linux only.** The Makefile uses GNU `sed -i` and links `-latomic`, and the
   README says only Linux is supported. Use WSL on Windows and Docker on macOS.
 - **Windows line endings.** This repository's `.gitattributes` keeps LF line
@@ -213,13 +254,13 @@ There are none. The nginx modules work only on-premise, with a data file.
   [`add_header`](http://nginx.org/en/docs/http/ngx_http_headers_module.html#add_header)
   adds a header only to some response codes, such as 200 and not 404, so ask
   for the path the example serves, such as `/hash` or `/ipi`.
-  `examples/curl/curl.sh` asks for `/mixed`, which the Docker image does not
-  serve, so it gets `404 Not Found` with no 51Degrees headers. Use the request
-  in `examples/curl/README.md` instead.
-- **What CI does not test.** CI builds with the paid `TAC-HashV41.hash`
-  (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), so it
-  never uses the Lite Device Detection file. `ci/fetch-assets.ps1` downloads
-  the Asn file with the data repository's script, as the steps here do.
+- **What CI tests.** CI builds with the paid `TAC-HashV41.hash`
+  (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
+  runs the example tests on it and again on the free Lite file, which a fresh
+  clone uses. `ci/fetch-assets.ps1` takes every data file from common-ci's
+  assets, which each run fetches once and caches because the workflows set
+  `cache-assets`, and copies the two Lite files and the Asn file to where a
+  fresh clone's data submodule keeps them.
 
 ## Building the modules
 
@@ -240,6 +281,13 @@ The workflows call the shared workflows in
 `ci/update-packages.ps1` rewrites it from the NGINX Plus releases page in the
 nightly package update, so do not edit the versions by hand. The nightly
 submodule update moves `cxx` with a pull request into `rc`.
+
+The tests use NGINX's own test library, which `make` downloads into
+`tests/nginx-tests` and which fails a test on any line of the error log that
+names a sanitizer. `tests/sanitizer-check.pl` leaves out one false warning,
+"ptrace appears to be blocked", which LeakSanitizer on Ubuntu 26.04 prints
+when an NGINX worker's SIGCHLD handler reaps the child that the sanitizer
+forks to try ptrace, before the sanitizer waits for it.
 
 ## Versions
 

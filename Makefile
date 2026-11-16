@@ -1,5 +1,5 @@
 ifndef FIFTYONEDEGREES_NGINX_VERSION
-	VERSION := 1.20.0
+	VERSION := 1.29.3
 else
 	VERSION := $(FIFTYONEDEGREES_NGINX_VERSION)
 endif
@@ -10,7 +10,7 @@ else
 	CLEANTESTS := 0
 endif
 
-TESTS := tests/51degrees.t
+TESTS := tests/51degrees.t tests/51degrees_own_match.t
 
 
 $(eval $(API):;@:)
@@ -30,7 +30,7 @@ $(warning FIFTYONEDEGREES_DATAFILE is deprecated and will be removed in a future
 endif
 
 ifndef FIFTYONEDEGREES_DATAFILE_IPI
-	DATAFILE_IPI := 51Degrees-IPIV4AsnIpiV41.ipi
+	DATAFILE_IPI := 51Degrees-LiteV41.ipi
 else
 $(warning FIFTYONEDEGREES_DATAFILE_IPI is deprecated and will be removed in a future release. Use 51DEGREES_IPI_PATH with an explicit path to the data file instead.)
 	DATAFILE_IPI := $(FIFTYONEDEGREES_DATAFILE_IPI)
@@ -57,6 +57,25 @@ ifdef 51DEGREES_IPI_PATH
 	DATAFILE_IPI := $(notdir $(51DEGREES_IPI_PATH))
 endif
 
+# A fresh clone has no data files. When the file in use is the free one the
+# examples name by default and it is missing, the data repository's script
+# downloads it. A file named any other way is never downloaded.
+DEFAULT_FILEPATH := $(FULLPATH)/cxx/data/device-detection/51Degrees-LiteV4.1.hash
+DEFAULT_FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/51Degrees-LiteV41.ipi
+GET_DATA_FILES := sh $(FULLPATH)/cxx/data/get-data-files.sh -s examples-51degrees-nginx
+ifeq ($(API),ipi)
+	INSTALL_DATA := data-file-ipi
+else ifeq ($(API),mixed)
+	INSTALL_DATA := data-file-dd data-file-ipi
+else
+	INSTALL_DATA := data-file-dd
+endif
+
+# The example make install writes as build/nginx.conf, from examples/$(API),
+# with the file it serves in build/html. With API=hash it can also be config,
+# matchMetrics, matchQuery or responseHeaders/responseHeader.
+EXAMPLE := gettingStarted
+
 
 # For dynamic builds, both the device detection and IP intelligence modules
 # are built. For static builds, only the module selected by the API variable
@@ -74,14 +93,16 @@ else
 	ifeq ($(API),ipi)
 		MODULE_ARGS := --add-module=$(CURDIR)/51Degrees_ipi_module
 		# Only the IP intelligence example uses just the IP intelligence module.
-		EXAMPLE_TESTS := tests/examples/ipiGettingStarted.t
+		EXAMPLE_TESTS := tests/examples/ipiGettingStarted.t \
+			tests/examples/ipiBadDataFile.t tests/examples/signalBadDataFile.t
 	else
 		MODULE_ARGS := --add-module=$(CURDIR)/51Degrees_hash_module
 		# The device detection examples use only the device detection module.
 		# The mixed example needs both modules and so cannot run statically.
 		EXAMPLE_TESTS := tests/examples/config.t tests/examples/gettingStarted.t \
 			tests/examples/matchMetrics.t tests/examples/matchQuery.t \
-			tests/examples/responseHeader.t
+			tests/examples/responseHeader.t tests/examples/javascript.t \
+			tests/examples/signalBadDataFile.t
 	endif
 	# A static build links the module into the Nginx binary, so there is
 	# no module to load and a load_module directive would fail to open the
@@ -196,9 +217,22 @@ configure-no-module: clean
 	--conf-path="nginx.conf" \
 	--with-http_sub_module
 
-install: configure
+.PHONY: data-file-dd data-file-ipi
+
+data-file-dd:
+ifeq ($(FILEPATH),$(DEFAULT_FILEPATH))
+	@[ -f "$(FILEPATH)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH))
+endif
+
+data-file-ipi:
+ifeq ($(FILEPATH_IPI),$(DEFAULT_FILEPATH_IPI))
+	@[ -f "$(FILEPATH_IPI)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH_IPI))
+endif
+
+install: $(INSTALL_DATA) configure
+	@[ -f "examples/$(API)/$(EXAMPLE).conf" ] || { echo "There is no example examples/$(API)/$(EXAMPLE).conf"; exit 1; }
 	cd $(CURDIR)/vendor/nginx-$(VERSION) && make install
-	sed "/\/\*\*/,/\*\//d" examples/$(API)/gettingStarted.conf > build/nginx.conf
+	sed "/\/\*\*/,/\*\//d" examples/$(API)/$(EXAMPLE).conf > build/nginx.conf
 	sed -i "s!%%DAEMON_MODE%%!on!g" build/nginx.conf
 	sed -i "s!%%MODULE_PATH%%!!g" build/nginx.conf
 	sed -i "s!%%FILE_PATH%%!$(FILEPATH)!g" build/nginx.conf
@@ -211,7 +245,13 @@ ifdef STATIC_BUILD
 	# object that a static build does not produce.
 	sed -i "/load_module/d" build/nginx.conf
 endif
-	echo > build/html/$(API)
+	case "$(EXAMPLE)" in \
+		config) echo > build/html/config ;; \
+		matchMetrics) echo > build/html/metrics ;; \
+		matchQuery) echo > build/html/query ;; \
+		responseHeaders/responseHeader) cp examples/hash/responseHeaders/response.html build/html/ ;; \
+		*) echo > build/html/$(API) ;; \
+	esac
 
 install-no-module: configure-no-module	
 	cd $(CURDIR)/vendor/nginx-$(VERSION) && make install
@@ -241,11 +281,12 @@ test-prep:
 		curl -fL "https://github.com/nginx/nginx-tests/archive/refs/heads/master.tar.gz" \
 		| tar -xzC tests/nginx-tests --strip-components 1; \
 	fi;
+	perl tests/sanitizer-check.pl tests/nginx-tests/lib/Test/Nginx.pm
 
 test-full:
 	$(MAKE) test TESTS="$(TESTS) tests/nginx-tests"
 
-test-examples: test-prep
+test-examples: test-prep data-file-dd data-file-ipi
 ifeq (,$(wildcard $(FULLPATH)/nginx))
 	$(error Local binary must be built first (use "make install"))
 else
@@ -257,7 +298,7 @@ else
 endif
 endif
 
-test: test-prep
+test: test-prep data-file-dd
 ifeq (,$(wildcard $(FULLPATH)/nginx))
 	$(error Local binary must be built first (use "make install"))
 else

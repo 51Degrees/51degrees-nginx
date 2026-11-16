@@ -27,6 +27,9 @@ try {
     if ($BuildMethod -eq 'static') {
         sed -i "/load_module/d" build/nginx.conf
     }
+    # The example's instructions create a static file for /overrides, without
+    # which NGINX answers 404 with none of the headers the page reads.
+    New-Item -ItemType File -Force build/html/overrides | Out-Null
     # Start NGINX
     ./nginx
 
@@ -37,13 +40,7 @@ try {
         $env:PATH="$($env:PATH):$pwd/driver"
         npm install
         npx browserslist@latest --update-db
-        & {
-            $PSNativeCommandUseErrorActionPreference = $false
-            npm test
-        }
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host '::warning::CDN tests exited with 1, ignoring due to frequent false negatives'
-        }
+        npm test
     }
     finally {
         Pop-Location
@@ -63,6 +60,11 @@ try {
 
     Write-Host "Testing examples"
     make test-examples $staticBuild DONT_CLEAN_TESTS=1 51DEGREES_DD_PATH="$HashFilePath" FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Examples.xml
+
+    # A fresh clone has the free Lite data file, which the Makefile uses when
+    # no other file is named, so the examples run on it as well.
+    Write-Host "Testing examples on the free Lite data file"
+    make test-examples $staticBuild DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Examples_Lite.xml
 } finally {
     Pop-Location
 }
