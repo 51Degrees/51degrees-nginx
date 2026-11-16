@@ -89,7 +89,7 @@ like($r, qr/x-mobile-all: True/, 'Mobile match (all)');
 
 # The hardware properties are only in the Enterprise data file. On the free
 # Lite data file they read NoMatch, and x-enterprise links to ask for a copy.
-if (index($ENV{TEST_FILE_PATH}, '51Degrees-Lite') != -1) {
+if (index($hashFilePath, '51Degrees-Lite') != -1) {
 	like($r, qr/x-hardware: NoMatch,NoMatch,NoMatch\r/, 'Hardware needs the Enterprise data file');
 	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
 }
