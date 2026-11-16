@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - 'examples/curl/**'
+      - 'examples/hash/gettingStarted.conf'
       - '51Degrees_hash_module/**'
       - '51Degrees_ipi_module/**'
       - 'module_conf/**'
