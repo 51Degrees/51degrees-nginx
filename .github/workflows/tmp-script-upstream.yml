@@ -1,0 +1,35 @@
+name: Temporary run of the script directive in front of an upstream
+
+on:
+  push:
+    branches:
+      - tmp/script-upstream
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          git clone --branch tmp/script-upstream --recurse-submodules --shallow-submodules https://github.com/51Degrees/51degrees-nginx 51degrees-nginx
+          git -C 51degrees-nginx log -2 --format='module at %H %s'
+      - name: Set up as CI does
+        run: ./51degrees-nginx/ci/setup-environment.ps1 -RepoName 51degrees-nginx -NginxVersion 1.29.3 -Name proof
+      - name: Build, which downloads the free Lite data file
+        run: |
+          Set-Location 51degrees-nginx
+          make DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=1.29.3 install 2>&1 | Select-Object -Last 6
+      - name: The test, on the free Lite data file
+        run: |
+          Set-Location 51degrees-nginx
+          make test DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=1.29.3 TESTS="tests/51degrees_script_upstream.t"
