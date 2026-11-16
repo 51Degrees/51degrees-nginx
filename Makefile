@@ -30,7 +30,7 @@ $(warning FIFTYONEDEGREES_DATAFILE is deprecated and will be removed in a future
 endif
 
 ifndef FIFTYONEDEGREES_DATAFILE_IPI
-	DATAFILE_IPI := 51Degrees-IPIV4AsnIpiV41.ipi
+	DATAFILE_IPI := 51Degrees-LiteV41.ipi
 else
 $(warning FIFTYONEDEGREES_DATAFILE_IPI is deprecated and will be removed in a future release. Use 51DEGREES_IPI_PATH with an explicit path to the data file instead.)
 	DATAFILE_IPI := $(FIFTYONEDEGREES_DATAFILE_IPI)
@@ -61,7 +61,7 @@ endif
 # examples name by default and it is missing, the data repository's script
 # downloads it. A file named any other way is never downloaded.
 DEFAULT_FILEPATH := $(FULLPATH)/cxx/data/device-detection/51Degrees-LiteV4.1.hash
-DEFAULT_FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi
+DEFAULT_FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/51Degrees-LiteV41.ipi
 GET_DATA_FILES := sh $(FULLPATH)/cxx/data/get-data-files.sh -s examples-51degrees-nginx
 ifeq ($(API),ipi)
 	INSTALL_DATA := data-file-ipi
