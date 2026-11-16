@@ -60,7 +60,7 @@ try {
 
     if ($ipiOnly) {
         # Run the performance test for the IP intelligence module using the
-        # Asn data file that ci/fetch-assets.ps1 downloads into
+        # Asn data file that ci/fetch-assets.ps1 copies into
         # cxx/data/ip-intelligence.
         Write-Host "Running IP intelligence performance test"
         $env:ENGINE="ipi"

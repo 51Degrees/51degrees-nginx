@@ -66,7 +66,7 @@ for the Lite file and `make test-examples` for both, so a fresh clone needs no
 step of its own. To fetch both before building, run the script yourself.
 
 ```
-sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-IPIV4AsnIpiV41.ipi
+sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-LiteV41.ipi
 ```
 
 The script keeps a file that is already there. A file named with
@@ -75,7 +75,7 @@ The script keeps a file that is already there. A file named with
 #### Check the files
 
 - `cxx/data/device-detection/51Degrees-LiteV4.1.hash` is more than 10 MB.
-- `cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi` is more than 1 MB.
+- `cxx/data/ip-intelligence/51Degrees-LiteV41.ipi` is more than 100 MB.
 
 ### Build
 
@@ -149,9 +149,11 @@ docker run -d -p 8080:8080 51d-nginx-curl
 ```
 
 Then send the request that `examples/curl/README.md` gives, which asks for
-`http://127.0.0.1:8080/hash`. The image clones `main` from GitHub rather than
-using your checkout, builds the Makefile's default nginx 1.20.0, and loads only
-the Device Detection module, with `examples/curl/nginx.conf`.
+`http://127.0.0.1:8080/hash`, or run `examples/curl/curl.sh`, which sends it
+and one more. The image clones a branch from GitHub rather than using your
+checkout, `main` unless `--build-arg BRANCH=<branch>` names another, builds
+nginx 1.29.3, which CI tests, and loads only the Device Detection module, with
+`examples/curl/nginx.conf`.
 
 ### Correct output
 
@@ -186,14 +188,14 @@ The IP Intelligence request answers with these lines, as
 ```
 HTTP/1.1 200 OK
 ...
-x-asn-query: \"BBC\":1
+x-registered-name-query: \"UK-BBC-991005\":1
 x-location-query: NoMatch,NoMatch,NoMatch
 x-enterprise: Some of these properties need the Enterprise data file. Contact us for a copy at https://51degrees.com/contact-us?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=enterprise-data-file
 x-find-out-more: This module is at https://github.com/51Degrees/51degrees-nginx and the engine it uses at https://github.com/51Degrees/51degrees-cxx. Read about IP intelligence at https://51degrees.com/ip-intelligence?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=ip-intelligence and about data files and pricing at https://51degrees.com/pricing?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-ipi-gettingstarted.conf&utm_term=pricing
 ...
 ```
 
-`x-asn` holds the answer for the address the request came from. IP
+`x-registered-name` holds the answer for the address the request came from. IP
 Intelligence values take the form `"value":weight`, with each double quote
 escaped by a backslash in the header. A property the data file does not have
 reads `NoMatch` in both modules (`FIFTYONE_DEGREES_PROPERTY_NOT_AVAILABLE` in
@@ -249,14 +251,13 @@ There are none. The nginx modules work only on-premise, with a data file.
   [`add_header`](http://nginx.org/en/docs/http/ngx_http_headers_module.html#add_header)
   adds a header only to some response codes, such as 200 and not 404, so ask
   for the path the example serves, such as `/hash` or `/ipi`.
-  `examples/curl/curl.sh` asks for `/mixed`, which the Docker image does not
-  serve, so it gets `404 Not Found` with no 51Degrees headers. Use the request
-  in `examples/curl/README.md` instead.
 - **What CI tests.** CI builds with the paid `TAC-HashV41.hash`
   (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
   runs the example tests on it and again on the free Lite file, which a fresh
-  clone uses. `ci/fetch-assets.ps1` downloads the Lite and Asn files with the
-  data repository's script, as the steps here do.
+  clone uses. `ci/fetch-assets.ps1` takes every data file from common-ci's
+  assets, which each run fetches once and caches because the workflows set
+  `cache-assets`, and copies the two Lite files and the Asn file to where a
+  fresh clone's data submodule keeps them.
 
 ## Building the modules
 
@@ -277,6 +278,13 @@ The workflows call the shared workflows in
 `ci/update-packages.ps1` rewrites it from the NGINX Plus releases page in the
 nightly package update, so do not edit the versions by hand. The nightly
 submodule update moves `cxx` with a pull request into `rc`.
+
+The tests use NGINX's own test library, which `make` downloads into
+`tests/nginx-tests` and which fails a test on any line of the error log that
+names a sanitizer. `tests/sanitizer-check.pl` leaves out one false warning,
+"ptrace appears to be blocked", which LeakSanitizer on Ubuntu 26.04 prints
+when an NGINX worker's SIGCHLD handler reaps the child that the sanitizer
+forks to try ptrace, before the sanitizer waits for it.
 
 ## Versions
 
