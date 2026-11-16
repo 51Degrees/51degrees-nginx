@@ -111,9 +111,9 @@ my $knownIp = '212.58.224.22';
 ###############################################################################
 
 my $r = get_uri('/ipi?client_ip=' . $knownIp);
-like($r, qr/x-asn: .+/, 'ASN name set (client IP)');
-like($r, qr/x-asn-query: .+/, 'ASN name set (query IP)');
-unlike($r, qr/x-asn-query: (NoMatch)?\r/, 'Query IP matched');
+like($r, qr/x-registered-name: .+/, 'Registered name set (client IP)');
+like($r, qr/x-registered-name-query: .+/, 'Registered name set (query IP)');
+unlike($r, qr/x-registered-name-query: (NoMatch)?\r/, 'Query IP matched');
 
 # The location properties are only in the Enterprise data file. On a free
 # data file they read NoMatch, and x-enterprise links to ask for a copy.
@@ -130,10 +130,10 @@ else {
 # $arg_client_ip falls back to the client IP address, so both headers
 # carry the same value.
 $r = get_uri('/ipi');
-my ($asn) = $r =~ /x-asn: (.*)\r/;
-my ($asnQuery) = $r =~ /x-asn-query: (.*)\r/;
-like($r, qr/x-asn-query: .+/, 'ASN name set without client_ip argument');
-is($asnQuery, $asn, 'Empty variable falls back to the client IP match');
+my ($registered) = $r =~ /x-registered-name: (.*)\r/;
+my ($registeredQuery) = $r =~ /x-registered-name-query: (.*)\r/;
+like($r, qr/x-registered-name-query: .+/, 'Registered name set without client_ip argument');
+is($registeredQuery, $registered, 'Empty variable falls back to the client IP match');
 
 # The client IP address text held by nginx is not null terminated, so a
 # parse failure here indicates the module has passed it to the engine

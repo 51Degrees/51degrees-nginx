@@ -49,6 +49,11 @@ if (!defined $ipiFilePath || !-e $ipiFilePath) {
 my $loadModule = $ENV{TEST_NGINX_STATIC} ? '' :
 	"load_module $ENV{TEST_MODULE_PATH}modules/ngx_http_51D_ipi_module.so;";
 
+# The Asn file has AsnName, and the Lite and Enterprise files have
+# RegisteredName. NGINX does not start when the file has none of the
+# properties asked for, so ask for the one the file in use has.
+my $property = $ipiFilePath =~ /Asn/ ? 'AsnName' : 'RegisteredName';
+
 # One worker, so that each request follows the one before on the same
 # results. Two directives read the same header, so the second reuses the
 # first one's lookup.
@@ -74,10 +79,10 @@ http {
 		server_name localhost;
 
 		location /ipi {
-			51D_match_ipi x-asn AsnName \$http_x_test_ip;
-			51D_match_ipi x-asn-again AsnName \$http_x_test_ip;
-			add_header x-asn \$http_x_asn;
-			add_header x-asn-again \$http_x_asn_again;
+			51D_match_ipi x-name $property \$http_x_test_ip;
+			51D_match_ipi x-name-again $property \$http_x_test_ip;
+			add_header x-name \$http_x_name;
+			add_header x-name-again \$http_x_name_again;
 		}
 	}
 }
@@ -105,10 +110,10 @@ EOF
 my $knownIp = '212.58.224.22';
 
 my $r = get_with_ip($knownIp);
-my ($known) = $r =~ /x-asn: (.*)\r/;
+my ($known) = $r =~ /x-name: (.*)\r/;
 ok(defined $known && $known ne 'NoMatch', 'A single address is read');
 
-like(get_with_ip("$knownIp:80"), qr/x-asn: \Q$known\E\r/,
+like(get_with_ip("$knownIp:80"), qr/x-name: \Q$known\E\r/,
 	'An address with a port is read as the address');
 
 # Each value that is not one whole address gives no value, for both
@@ -127,11 +132,11 @@ foreach my $case (@notRead) {
 	get_with_ip($knownIp);
 	$r = get_with_ip($value);
 	like($r, qr/^HTTP\/1\.1 200/, "$name: the request succeeds");
-	like($r, qr/x-asn: NoMatch\r/, "$name: no value");
-	like($r, qr/x-asn-again: NoMatch\r/, "$name: no value for the second directive");
+	like($r, qr/x-name: NoMatch\r/, "$name: no value");
+	like($r, qr/x-name-again: NoMatch\r/, "$name: no value for the second directive");
 }
 
-like(get_with_ip($knownIp), qr/x-asn: \Q$known\E\r/,
+like(get_with_ip($knownIp), qr/x-name: \Q$known\E\r/,
 	'A single address after the others is read again');
 
 $t->stop();

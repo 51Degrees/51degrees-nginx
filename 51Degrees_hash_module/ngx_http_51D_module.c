@@ -2931,7 +2931,8 @@ set_data(
 	int propertiesCount,
 	ngx_http_51D_main_conf_t *fdmcf)
 {
-	char *tok, *tokPos = NULL, *saveptr = NULL;
+	char *tok, *saveptr = NULL;
+	const char *tokPos = NULL;
 
 	// Allocate space for the properties array.
 	data->property =
