@@ -3,7 +3,7 @@ name: Temporary timing of main against the release head
 on:
   push:
     branches:
-      - tmp/timing-nginx
+      - tmp/timing-nginx2
 
 permissions:
   contents: read
@@ -19,7 +19,7 @@ env:
 
 jobs:
   assets:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -36,7 +36,7 @@ jobs:
 
   timing:
     needs: assets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v6
