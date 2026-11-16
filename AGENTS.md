@@ -206,8 +206,9 @@ where to ask for a copy. The mixed example answers with the headers of both.
 The Docker request answers with `x-platform-name`, `x-browser-name`,
 `x-is-mobile` and the other headers that `examples/curl/README.md` shows, and
 `x-device-type: NoMatch`, because the Lite file has no DeviceType, with
-`x-enterprise` saying where to ask for a copy. The configuration and match
-metrics examples answer with `x-hardware` and `x-enterprise` in the same way,
+`x-enterprise` saying where to ask for a copy. The configuration, match
+metrics and match query examples answer with `x-hardware` and `x-enterprise` in
+the same way,
 and the JavaScript example's `/overrides` adds `x-enterprise` when the data file
 has no ScreenPixelsWidthJavascript.
 
