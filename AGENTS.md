@@ -149,9 +149,11 @@ docker run -d -p 8080:8080 51d-nginx-curl
 ```
 
 Then send the request that `examples/curl/README.md` gives, which asks for
-`http://127.0.0.1:8080/hash`. The image clones `main` from GitHub rather than
-using your checkout, builds the Makefile's default nginx 1.20.0, and loads only
-the Device Detection module, with `examples/curl/nginx.conf`.
+`http://127.0.0.1:8080/hash`, or run `examples/curl/curl.sh`, which sends it
+and one more. The image clones a branch from GitHub rather than using your
+checkout, `main` unless `--build-arg BRANCH=<branch>` names another, builds
+nginx 1.29.3, which CI tests, and loads only the Device Detection module, with
+`examples/curl/nginx.conf`.
 
 ### Correct output
 
@@ -248,14 +250,13 @@ There are none. The nginx modules work only on-premise, with a data file.
   [`add_header`](http://nginx.org/en/docs/http/ngx_http_headers_module.html#add_header)
   adds a header only to some response codes, such as 200 and not 404, so ask
   for the path the example serves, such as `/hash` or `/ipi`.
-  `examples/curl/curl.sh` asks for `/mixed`, which the Docker image does not
-  serve, so it gets `404 Not Found` with no 51Degrees headers. Use the request
-  in `examples/curl/README.md` instead.
 - **What CI tests.** CI builds with the paid `TAC-HashV41.hash`
   (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
   runs the example tests on it and again on the free Lite file, which a fresh
-  clone uses. `ci/fetch-assets.ps1` downloads the two Lite files and the Asn file with the
-  data repository's script, as the steps here do.
+  clone uses. `ci/fetch-assets.ps1` takes every data file from common-ci's
+  assets, which each run fetches once and caches because the workflows set
+  `cache-assets`, and copies the two Lite files and the Asn file to where a
+  fresh clone's data submodule keeps them.
 
 ## Building the modules
 
@@ -276,6 +277,13 @@ The workflows call the shared workflows in
 `ci/update-packages.ps1` rewrites it from the NGINX Plus releases page in the
 nightly package update, so do not edit the versions by hand. The nightly
 submodule update moves `cxx` with a pull request into `rc`.
+
+The tests use NGINX's own test library, which `make` downloads into
+`tests/nginx-tests` and which fails a test on any line of the error log that
+names a sanitizer. `tests/sanitizer-check.pl` leaves out one false warning,
+"ptrace appears to be blocked", which LeakSanitizer on Ubuntu 26.04 prints
+when an NGINX worker's SIGCHLD handler reaps the child that the sanitizer
+forks to try ptrace, before the sanitizer waits for it.
 
 ## Versions
 

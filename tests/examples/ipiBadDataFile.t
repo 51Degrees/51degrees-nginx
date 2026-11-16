@@ -1,13 +1,16 @@
 #!/usr/bin/perl
 
 # Tests that the 51Degrees IP Intelligence module refuses a data file it cannot
-# use, with a message naming the file, rather than starting without one.
+# use, with a message naming the file, rather than starting without one, and
+# that a reload onto such a file leaves NGINX answering from the file it has.
 
 ###############################################################################
 
 use warnings;
 use strict;
+use File::Spec;
 use File::Temp qw/ tempdir /;
+use IO::Socket::INET;
 use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
@@ -125,7 +128,7 @@ my @files = (
 		qr/is an unsupported version/],
 );
 
-plan(tests => 1 + scalar(@files) * 8);
+plan(tests => 1 + scalar(@files) * 8 + 8);
 
 # A good file passes with the same configuration, so that the failures below
 # come from the data file.
@@ -137,3 +140,110 @@ foreach my $entry (@files) {
 	expect_refused($name, $file, $reason, 'nginx -t', '-t');
 	expect_refused($name, $file, $reason, 'starting');
 }
+
+# A reload onto a file the module cannot use is refused, and NGINX goes on with
+# the configuration it has, so its workers still answer from the good file. The
+# configuration names a link, so that only the file behind it changes.
+my $startSeconds = 60;
+my $reloadSeconds = 30;
+my $reloadPort = 8098;
+my $property = $goodFile =~ /Asn/ ? 'AsnName' : 'RegisteredName';
+my $link = "$dir/reload.ipi";
+my $log = "$dir/reload.log";
+my $pidFile = "$dir/reload.pid";
+mkdir "$dir/html" or die "Can't create $dir/html: $!";
+write_binary('html/ipi', '');
+symlink(File::Spec->rel2abs($goodFile), $link) or die "Can't link $link: $!";
+
+open my $reloadConf, '>', "$dir/reload.conf"
+	or die "Can't open reload.conf: $!";
+print $reloadConf <<EOF;
+$loadModule
+daemon on;
+master_process on;
+worker_processes 1;
+pid $pidFile;
+error_log $log notice;
+events {
+}
+http {
+	access_log off;
+	51D_file_path_ipi $link;
+	server {
+		listen 127.0.0.1:$reloadPort;
+		root $dir/html;
+		location /ipi {
+			51D_match_ipi x-name-query $property \$arg_client_ip;
+			add_header x-name-query \$http_x_name_query;
+		}
+	}
+}
+EOF
+close $reloadConf or die "Can't close reload.conf: $!";
+
+my $control = qq{timeout $startSeconds "$nginx" -p "$dir/" } .
+	qq{-c "$dir/reload.conf" -e "$log"};
+
+sub read_log {
+	return -e $log ? read_binary($log) : '';
+}
+
+# Returns the x-name-query header NGINX gives for 212.58.224.22, or an empty
+# string when there is no answer.
+sub ask_name {
+	my $socket = IO::Socket::INET->new(
+		PeerAddr => "127.0.0.1:$reloadPort", Timeout => 10) or return '';
+	print $socket "GET /ipi?client_ip=212.58.224.22 HTTP/1.0\r\n" .
+		"Host: localhost\r\n\r\n";
+	local $/;
+	my $response = <$socket> // '';
+	close $socket;
+	return $response =~ /^x-name-query: ([^\r\n]*)/mi ? $1 : '';
+}
+
+# Runs the check once a second until it gives a true value or the seconds
+# pass, and returns what it gave last.
+sub wait_for {
+	my ($seconds, $check) = @_;
+	my $result = '';
+	for (1 .. $seconds) {
+		$result = $check->();
+		last if $result;
+		sleep 1;
+	}
+	return $result;
+}
+
+my $startOutput = `$control 2>&1`;
+my $master = wait_for($startSeconds, sub {
+	return -s $pidFile && read_binary($pidFile) =~ /(\d+)/ ? $1 : 0;
+});
+my $before = wait_for($startSeconds, \&ask_name);
+ok($master && $before ne '' && $before !~ /NoMatch/,
+	'Reload: NGINX starts and answers from the good file')
+	or diag("$startOutput\n" . read_log());
+
+unlink $link or die "Can't remove $link: $!";
+symlink("$dir/cut.ipi", $link) or die "Can't link $link: $!";
+# The master logs each signal it takes. The exit code of nginx -s is not
+# checked, as under the memory check LeakSanitizer reports the pool NGINX's
+# main() never frees in a process that only sends a signal.
+my $reloadOutput = `$control -s reload 2>&1`;
+ok(wait_for($reloadSeconds, sub {
+	return read_log() =~ /\(SIGHUP\) received.*reconfiguring/ ? 1 : 0;
+}), 'Reload: the master takes the reload') or diag($reloadOutput);
+my $logged = wait_for($reloadSeconds, sub {
+	my $text = read_log();
+	return $text =~ /51Degrees.*\Q$link\E/ ? $text : '';
+});
+like($logged, qr/51Degrees.*\Q$link\E/,
+	'Reload: logs a message naming the file') or diag(read_log());
+like($logged, qr/not in the correct format/, 'Reload: logs the reason');
+ok($master && kill(0, $master), 'Reload: the master keeps running');
+is(ask_name(), $before, 'Reload: the workers still answer from the good file');
+
+`$control -s quit 2>&1`;
+wait_for($reloadSeconds, sub { return !-e $pidFile; });
+ok(!-e $pidFile, 'Reload: NGINX stops') or ($master and kill('TERM', $master));
+unlike(read_log(), qr/ERROR: (Address|Leak)Sanitizer/,
+	'Reload: no memory error');

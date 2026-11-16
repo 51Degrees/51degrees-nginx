@@ -580,6 +580,12 @@ ngx_http_51D_post_conf(ngx_conf_t *cf)
 		return NGX_OK;
 	}
 
+	// nginx -s only sends a signal to the running master, which reads the
+	// data file itself, so this process neither reads it nor needs memory.
+	if (ngx_process == NGX_PROCESS_SIGNALLER) {
+		return NGX_OK;
+	}
+
 	// Initialise the shared memory zone for the resource manager.
 	resourceManagerName.data = (u_char *) "51Degrees Shared Resource Manager";
 	resourceManagerName.len = ngx_strlen(resourceManagerName.data);
@@ -2925,7 +2931,8 @@ set_data(
 	int propertiesCount,
 	ngx_http_51D_main_conf_t *fdmcf)
 {
-	char *tok, *tokPos = NULL, *saveptr = NULL;
+	char *tok, *saveptr = NULL;
+	const char *tokPos = NULL;
 
 	// Allocate space for the properties array.
 	data->property =
