@@ -150,12 +150,13 @@ docker run -d -p 8080:8080 51d-nginx-curl
 
 Then send the request that `examples/curl/README.md` gives, which asks for
 `http://127.0.0.1:8080/hash`, or run `examples/curl/curl.sh`, which sends it
-and one more. The image clones a branch from GitHub rather than using your
-checkout, `main` unless `--build-arg BRANCH=<branch>` names another, builds
-nginx 1.29.3, which CI tests, and loads only the Device Detection module, with
-`examples/curl/nginx.conf`. The workflow `.github/workflows/docker-example.yml`
-builds the image from a pull request's branch when the pull request changes
-the example or what the image builds, and checks `curl.sh` and `curl.php`.
+and one more. The image builds `main` from GitHub rather than your checkout,
+unless `--build-arg` names another `BRANCH` or one `COMMIT`, builds nginx
+1.29.3, which CI tests, and loads only the Device Detection module, with
+`examples/curl/nginx.conf`. The workflow
+`.github/workflows/docker-example.yml` builds the image from the commit the
+run checks out when a pull request changes the example or what the image
+builds, and checks `curl.sh` and `curl.php`.
 
 ### Correct output
 
