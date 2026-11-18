@@ -1,0 +1,22 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "51Degrees Device Detection and IP Intelligence for NGINX",
+  "description": "User-Agent parser for NGINX that supports Device Detection, browser detection, mobile detection and crawler detection on-premise on Linux, as an alternative to UAParser.js, DeviceAtlas and WURFL. IP Intelligence adds IP geolocation, including IP to country data, as an alternative to MaxMind and IPinfo.",
+  "excludeFolders": [
+    ".github",
+    "ci",
+    "cxx",
+    "tests",
+    "archive",
+    "archived",
+    "old",
+    "deprecated",
+    "legacy",
+    "previous",
+    "outdated",
+    "superseded",
+    "benchmark",
+    "benchmarks",
+    "benches"
+  ]
+}
