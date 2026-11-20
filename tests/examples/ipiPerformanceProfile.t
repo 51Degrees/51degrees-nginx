@@ -4,7 +4,8 @@
 # HighPerformance is the default. With some of the data file's properties
 # named it holds only what they read, so it takes less shared memory than
 # InMemory and gives the same answers, in workers that share it. A reload
-# closes the master's handles to the data file it replaces.
+# closes the master's handles to the data file it replaces, including one onto
+# a configuration with no data file.
 
 ###############################################################################
 
@@ -61,10 +62,13 @@ sub read_text {
 }
 
 # Writes a configuration with the profile line given, which may be empty, and
-# returns its path.
+# returns its path. With $noFile set it has no data file and no match.
 sub write_conf {
-	my ($name, $profile) = @_;
+	my ($name, $profile, $noFile) = @_;
 	my $path = "$dir/$name.conf";
+	my $fileLine = $noFile ? '' : "51D_file_path_ipi $file;";
+	my $matchLine = $noFile ? '' :
+		"51D_match_ipi x-answer $properties \$arg_client_ip;";
 	open my $conf, '>', $path or die "Can't open $path: $!";
 	print $conf <<EOF;
 $loadModule
@@ -77,13 +81,13 @@ events {
 }
 http {
 	access_log off;
-	51D_file_path_ipi $file;
+	$fileLine
 	$profile
 	server {
 		listen 127.0.0.1:$port;
 		root $dir/html;
 		location /ipi {
-			51D_match_ipi x-answer $properties \$arg_client_ip;
+			$matchLine
 			add_header x-answer \$http_x_answer;
 		}
 	}
@@ -114,9 +118,9 @@ sub wait_for {
 	return $result;
 }
 
-# Returns the x-answer header for the address, or an empty string when there
-# is no answer.
-sub ask {
+# Returns the response for the address, or an empty string when there is
+# none.
+sub fetch {
 	my ($address) = @_;
 	my $socket = IO::Socket::INET->new(
 		PeerAddr => "127.0.0.1:$port", Timeout => 10) or return '';
@@ -125,7 +129,14 @@ sub ask {
 	local $/;
 	my $response = <$socket> // '';
 	close $socket;
-	return $response =~ /^x-answer: ([^\r\n]*)/mi ? $1 : '';
+	return $response;
+}
+
+# Returns the x-answer header for the address, or an empty string when there
+# is no answer.
+sub ask {
+	my ($address) = @_;
+	return fetch($address) =~ /^x-answer: ([^\r\n]*)/mi ? $1 : '';
 }
 
 sub ask_all {
@@ -167,14 +178,32 @@ sub start {
 	return $master;
 }
 
+# Stops NGINX, and any worker it started that outlived its master, so that a
+# failure leaves nothing listening for the tests that follow.
 sub stop {
 	my ($name, $master) = @_;
 	control($name, '-s', 'quit');
 	wait_for(60, sub { return !-e "$dir/$name.pid"; });
 	kill('TERM', $master) if $master && -e "$dir/$name.pid";
+	my @workers = grep { opens_test_file($_) }
+		read_text("$dir/$name.log") =~ /start worker process (\d+)/g;
+	kill('QUIT', @workers) if @workers;
 }
 
-plan(tests => 14);
+# Whether the process has a file in this test's folder open, so that only
+# processes this test started are stopped.
+sub opens_test_file {
+	my ($pid) = @_;
+	opendir my $fds, "/proc/$pid/fd" or return 0;
+	my $found = grep {
+		my $link = readlink("/proc/$pid/fd/$_");
+		defined $link && index($link, $dir) == 0;
+	} readdir $fds;
+	closedir $fds;
+	return $found;
+}
+
+plan(tests => 17);
 
 ###############################################################################
 # The default.
@@ -201,6 +230,18 @@ is(scalar(loads('default')), 1 + $reloads, 'Default: the reloads load the file')
 is(handles($master), $handles,
 	'Default: the reloads leave the master the same handles');
 is_deeply(ask_all(), $highPerformance, 'Default: the same answers after the reloads');
+
+# A reload onto a configuration with no data file leaves the master running,
+# and closes its handles to the data file it had.
+write_conf('default', '', 1);
+control('default', '-s', 'reload');
+ok(wait_for(60, sub {
+	my $response = fetch($addresses[0]);
+	return $response =~ /^HTTP\/1\.\d 200/ && $response !~ /^x-answer:/mi;
+}), 'No data file: the new workers answer without IP intelligence');
+ok(read_text("/proc/$master/stat") =~ /^\d+ \(.*\) [^Z]/,
+	'No data file: the master keeps running');
+is(handles($master), 0, 'No data file: the master closes its handles');
 stop('default', $master);
 unlike(read_text("$dir/default.log"), qr/ERROR: (Address|Leak)Sanitizer/,
 	'Default: no memory error');

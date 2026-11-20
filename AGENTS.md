@@ -282,7 +282,9 @@ the data file, which the workers inherit. A reload replaces the shared memory,
 and the module's init function then closes the master's copies of the handles
 of the data set it replaces, which it can still read because nginx releases
 the old zone only after that function returns. The workers of the old cycle
-keep their own copies. `tests/examples/ipiPerformanceProfile.t` checks the
+keep their own copies. `post_conf` leaves the module's zone pointer alone when
+a configuration has no data file, so the init function clears it, or a reload
+onto such a configuration would use the old zone. `tests/examples/ipiPerformanceProfile.t` checks the
 default, the answers against `IN_MEMORY` and the handles after reloads. The
 README says why the engine's other profiles are refused.
 

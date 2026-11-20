@@ -692,21 +692,31 @@ ngx_http_51D_ipi_init_shm_resource_manager(
 }
 
 /**
- * Closes the master process's copies of the data file handles of a data set
- * that a reload has replaced. The workers still using that data set hold their
- * own copies, and the list of handles in shared memory is left as it is,
- * because those workers may still be answering requests. Without this the
- * master keeps every replaced data file open, so one replaced on disk never
- * frees its space. NGINX releases the replaced shared memory after this
- * module's init function returns, so the list can still be read here.
- * @param manager the resource manager of the replaced data set.
+ * Records the data set the master process has loaded, and closes the master's
+ * copies of the data file handles of the one it replaces. The workers still
+ * using that data set hold their own copies, and the list of handles in shared
+ * memory is left as it is, because those workers may still be answering
+ * requests. Without this the master keeps every replaced data file open, so
+ * one replaced on disk never frees its space. NGINX releases the replaced
+ * shared memory after this module's init function returns, so the list can
+ * still be read here.
+ * @param manager the resource manager of the data set now loaded, or NULL
+ * when there is none.
  */
 static void
-ngx_http_51D_ipi_close_replaced_file(ResourceManager *manager)
+ngx_http_51D_ipi_replace_loaded_manager(ResourceManager *manager)
 {
-	DataSetIpi *dataSet = (DataSetIpi *)manager->active->resource;
-	Pool *pool = &dataSet->b.b.filePool.pool;
+	ResourceManager *replaced = ngx_http_51D_ipi_loaded_manager;
+	DataSetIpi *dataSet;
+	Pool *pool;
 	uint16_t i;
+
+	ngx_http_51D_ipi_loaded_manager = manager;
+	if (replaced == NULL) {
+		return;
+	}
+	dataSet = (DataSetIpi *)replaced->active->resource;
+	pool = &dataSet->b.b.filePool.pool;
 
 	// InMemory has no handles.
 	if (pool->stack == NULL) {
@@ -738,7 +748,14 @@ ngx_http_51D_ipi_init_module(ngx_cycle_t *cycle)
 	fdmcf = ngx_http_cycle_get_module_main_conf(
 		cycle, ngx_http_51D_ipi_module);
 
+	// Where this configuration has no data file, or no http block, post_conf
+	// leaves the zone of the configuration it replaces in place, so it is
+	// cleared here, which runs only once NGINX has committed to this one.
+	if (fdmcf == NULL || fdmcf->dataFile.len == 0) {
+		ngx_http_51D_ipi_shm_resource_manager = NULL;
+	}
 	if (ngx_http_51D_ipi_shm_resource_manager == NULL) {
+		ngx_http_51D_ipi_replace_loaded_manager(NULL);
 		return NGX_OK;
 	}
 	fdmcf->resourceManager =
@@ -788,11 +805,7 @@ ngx_http_51D_ipi_init_module(ngx_cycle_t *cycle)
 			(const char *)fdmcf->dataFile.data);
 	}
 
-	if (ngx_http_51D_ipi_loaded_manager != NULL &&
-		ngx_http_51D_ipi_loaded_manager != fdmcf->resourceManager) {
-		ngx_http_51D_ipi_close_replaced_file(ngx_http_51D_ipi_loaded_manager);
-	}
-	ngx_http_51D_ipi_loaded_manager = fdmcf->resourceManager;
+	ngx_http_51D_ipi_replace_loaded_manager(fdmcf->resourceManager);
 
 	ngx_log_error(
 		NGX_LOG_NOTICE,
