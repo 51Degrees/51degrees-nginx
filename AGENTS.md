@@ -273,6 +273,19 @@ copied IP Intelligence source. They must match the defines in
 `ngx_http_51D_ipi_module.c`. Each module carries its own copy of common, so
 only one of them can be linked statically.
 
+## IP Intelligence performance profile
+
+The IP Intelligence module uses the engine's HighPerformance profile unless
+`51D_performance_profile_ipi IN_MEMORY` is set. The master fills the shared
+memory before it forks the workers, and HighPerformance also keeps handles to
+the data file, which the workers inherit. A reload replaces the shared memory,
+and the module's init function then closes the master's copies of the handles
+of the data set it replaces, which it can still read because nginx releases
+the old zone only after that function returns. The workers of the old cycle
+keep their own copies. `tests/examples/ipiPerformanceProfile.t` checks the
+default, the answers against `IN_MEMORY` and the handles after reloads. The
+README says why the engine's other profiles are refused.
+
 ## CI
 
 The workflows call the shared workflows in
