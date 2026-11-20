@@ -17,8 +17,12 @@ use File::Copy;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../nginx-tests/lib';
+use lib '../lib';
+use FiftyOneDataFiles qw(hash_file_path);
 use Test::Nginx;
 use URI::Escape;
+
+my $hashFilePath = hash_file_path();
 
 ###############################################################################
 
@@ -57,7 +61,7 @@ $t_file =~ s/%%MODULE_PATH%%/$ENV{TEST_MODULE_PATH}/gmse;
 # object.
 $t_file =~ s/^.*load_module.*
 //mg if $ENV{TEST_NGINX_STATIC};
-$t_file =~ s/%%FILE_PATH%%/$ENV{TEST_FILE_PATH}/gmse;
+$t_file =~ s/%%FILE_PATH%%/$hashFilePath/gmse;
 $t->write_file_expand('nginx.conf', $t_file);
 
 my $t_html_file = read_example('response.html');

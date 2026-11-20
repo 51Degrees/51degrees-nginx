@@ -14,6 +14,8 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../nginx-tests/lib';
+use lib '../lib';
+use FiftyOneDataFiles qw(ipi_file_path);
 use Test::Nginx;
 use POSIX qw/ WNOHANG /;
 
@@ -41,9 +43,9 @@ select STDOUT; $| = 1;
 	};
 }
 
-my $ipiFilePath = $ENV{TEST_FILE_PATH_IPI};
-if (!defined $ipiFilePath || !-e $ipiFilePath) {
-	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
+my $ipiFilePath = ipi_file_path();
+if (!defined $ipiFilePath) {
+	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 
 my $loadModule = $ENV{TEST_NGINX_STATIC} ? '' :

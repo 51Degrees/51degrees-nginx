@@ -62,8 +62,8 @@ version is available.
 
 `make install`, `make test` and `make test-examples` run the script for the
 free file they use by default when it is missing, so a fresh clone needs no
-step of its own. A file named with `51DEGREES_DD_PATH` or `51DEGREES_IPI_PATH`
-is never downloaded.
+step of its own. A file named with `_51DEGREES_DD_PATH` or `_51DEGREES_IPI_PATH`
+is never downloaded, and make stops with that name when the file is missing.
 
 ### IP Intelligence data file
 
@@ -337,34 +337,35 @@ To run the 51Degrees together with the NGINX test suite, run the following comma
 make test-full
 ```
 
-These do not run all the required tests as some tests requires properties that are not supported with the Lite version of the data file. To run all tests, obtain a data file with support properties JavascriptHardwareProfile,ScreenPixelsWidthJavascript and ScreenPixelsWidth. Then, use the `51DEGREES_DD_PATH` variable to specify the path of the data file to run the tests with. If tests still fail, obtain data file with any other properties used in the tests. Below is an example of running tests with different data file:
+These do not run all the required tests as some tests requires properties that are not supported with the Lite version of the data file. To run all tests, obtain a data file with support properties JavascriptHardwareProfile,ScreenPixelsWidthJavascript and ScreenPixelsWidth. Then, use the `_51DEGREES_DD_PATH` variable to specify the path of the data file to run the tests with. If tests still fail, obtain data file with any other properties used in the tests. Below is an example of running tests with different data file:
 ```
-make [test|test-full] 51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
+make [test|test-full] _51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
 ```
 
-The data file used by the tests is resolved in the following order:
-
-1. The `51DEGREES_DD_PATH` environment variable, which provides an explicit
-   path to the data file.
-2. The legacy `FIFTYONEDEGREES_DATAFILE` variable, which provides a file name
-   that is combined with the `cxx/data/device-detection`
-   folder. This variable is deprecated and will be removed in a future
-   release. Using it prints a make warning, use `51DEGREES_DD_PATH` instead.
-3. When neither variable is set, the free Lite data file
-   `51Degrees-LiteV4.1.hash` in the `cxx/data/device-detection`
-   folder is used.
+The data file used by the tests is the one `_51DEGREES_DD_PATH` names, given
+either in the environment or on the make command line. When it is not set,
+the free Lite data file `51Degrees-LiteV4.1.hash` in the
+`cxx/data/device-detection` folder is used. When it names a file that does
+not exist, make stops and says so.
 
 For example:
 ```
-make test 51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
+make test _51DEGREES_DD_PATH=/path/to/51Degrees-EnterpriseV4.1.hash
 ```
+
+`make test-examples` hands the example tests the two paths as
+`_51DEGREES_DD_PATH` and `_51DEGREES_IPI_PATH`. A test run some other way reads
+the same names. A device detection test stops with the name when
+`_51DEGREES_DD_PATH` is not set or names a missing file. An IP Intelligence
+test is skipped when `_51DEGREES_IPI_PATH` is not set, and stops with the name
+when it names a missing file.
 
 Note that when running NGINX itself the data file is always specified
 explicitly with the `51D_file_path` directive in the configuration file.
 
-The IP Intelligence tests resolve their data file in the same order. The `51DEGREES_IPI_PATH` environment variable provides an explicit path to the file. The legacy `FIFTYONEDEGREES_DATAFILE_IPI` variable provides a file name that is combined with the `cxx/data/ip-intelligence` folder, it is deprecated and using it prints a make warning. When neither variable is set the free `51Degrees-LiteV41.ipi` file in that folder is used, which is downloaded as described in [Data files](#data-files). The IP Intelligence example tests are skipped when the file is not present. e.g.
+The IP Intelligence tests find their data file in the same way. `_51DEGREES_IPI_PATH`, in the environment or on the make command line, provides an explicit path to the file. When it is not set, the free `51Degrees-LiteV41.ipi` file in the `cxx/data/ip-intelligence` folder is used, which is downloaded as described in [Data files](#data-files). For example:
 ```
-make test-examples 51DEGREES_IPI_PATH=/path/to/51Degrees-EnterpriseIpiV41.ipi
+make test-examples _51DEGREES_IPI_PATH=/path/to/51Degrees-EnterpriseIpiV41.ipi
 ```
 
 ## Performance test
@@ -425,7 +426,7 @@ Before running the tests for the example, make sure to obtain data files that co
 
 Run the example tests with the obtained data files:
 ```
-make test-examples 51DEGREES_DD_PATH=[Path to obtained data file] 51DEGREES_IPI_PATH=[Path to obtained IP intelligence data file]
+make test-examples _51DEGREES_DD_PATH=[Path to obtained data file] _51DEGREES_IPI_PATH=[Path to obtained IP intelligence data file]
 ```
 
 ### JavaScript and overrides example test

@@ -18,6 +18,8 @@ use File::Copy;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../nginx-tests/lib';
+use lib '../lib';
+use FiftyOneDataFiles qw(hash_file_path ipi_file_path);
 use Test::Nginx;
 use URI::Escape;
 use POSIX qw/ WNOHANG /;
@@ -58,15 +60,12 @@ sub read_example($) {
 	return $content;
 }
 
-# Both data files are required for this test. Skip when either is not
-# present.
-my $hashFilePath = $ENV{TEST_FILE_PATH};
-my $ipiFilePath = $ENV{TEST_FILE_PATH_IPI};
-if (!defined $hashFilePath || !-e $hashFilePath) {
-	plan(skip_all => 'No device detection data file. Set TEST_FILE_PATH.');
-}
-if (!defined $ipiFilePath || !-e $ipiFilePath) {
-	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
+# Both data files are required for this test. A missing device detection
+# file stops it, and it skips when _51DEGREES_IPI_PATH is not set.
+my $hashFilePath = hash_file_path();
+my $ipiFilePath = ipi_file_path();
+if (!defined $ipiFilePath) {
+	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 
 my $t = Test::Nginx->new()->has(qw/http/)->plan(9);

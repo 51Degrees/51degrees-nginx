@@ -22,44 +22,32 @@ endif
 
 
 FULLPATH := $(shell pwd)
-ifndef FIFTYONEDEGREES_DATAFILE
-	DATAFILE := 51Degrees-LiteV4.1.hash
-else
-$(warning FIFTYONEDEGREES_DATAFILE is deprecated and will be removed in a future release. Use 51DEGREES_DD_PATH with an explicit path to the data file instead.)
-	DATAFILE := $(FIFTYONEDEGREES_DATAFILE)
-endif
-
-ifndef FIFTYONEDEGREES_DATAFILE_IPI
-	DATAFILE_IPI := 51Degrees-LiteV41.ipi
-else
-$(warning FIFTYONEDEGREES_DATAFILE_IPI is deprecated and will be removed in a future release. Use 51DEGREES_IPI_PATH with an explicit path to the data file instead.)
-	DATAFILE_IPI := $(FIFTYONEDEGREES_DATAFILE_IPI)
-endif
+DATAFILE := 51Degrees-LiteV4.1.hash
+DATAFILE_IPI := 51Degrees-LiteV41.ipi
 
 MODULEPATH := $(FULLPATH)/build/modules/ngx_http_51D_module.so
 FILEPATH := $(FULLPATH)/cxx/data/device-detection/$(DATAFILE)
 FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/$(DATAFILE_IPI)
 
-# The aligned environment variable 51DEGREES_DD_PATH provides an explicit
-# path to a device detection data file and is checked first. The legacy
-# FIFTYONEDEGREES_DATAFILE name variable above is retained for backwards
-# compatibility and is combined with the expected data folder when no
-# explicit path is provided.
-ifdef 51DEGREES_DD_PATH
-	FILEPATH := $(51DEGREES_DD_PATH)
-	DATAFILE := $(notdir $(51DEGREES_DD_PATH))
+# A path to the device detection data file comes from _51DEGREES_DD_PATH,
+# set in the environment or on the make command line. When it is not set, the
+# free file in the data folder is used.
+ifdef _51DEGREES_DD_PATH
+	FILEPATH := $(_51DEGREES_DD_PATH)
+	DATAFILE := $(notdir $(_51DEGREES_DD_PATH))
 endif
 
-# The aligned environment variable 51DEGREES_IPI_PATH provides an explicit
-# path to an IP intelligence data file in the same way.
-ifdef 51DEGREES_IPI_PATH
-	FILEPATH_IPI := $(51DEGREES_IPI_PATH)
-	DATAFILE_IPI := $(notdir $(51DEGREES_IPI_PATH))
+# A path to the IP intelligence data file comes from _51DEGREES_IPI_PATH in
+# the same way.
+ifdef _51DEGREES_IPI_PATH
+	FILEPATH_IPI := $(_51DEGREES_IPI_PATH)
+	DATAFILE_IPI := $(notdir $(_51DEGREES_IPI_PATH))
 endif
 
 # A fresh clone has no data files. When the file in use is the free one the
 # examples name by default and it is missing, the data repository's script
-# downloads it. A file named any other way is never downloaded.
+# downloads it. A file named any other way is never downloaded, and make stops
+# with the name that gave it when it is missing.
 DEFAULT_FILEPATH := $(FULLPATH)/cxx/data/device-detection/51Degrees-LiteV4.1.hash
 DEFAULT_FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/51Degrees-LiteV41.ipi
 GET_DATA_FILES := sh $(FULLPATH)/cxx/data/get-data-files.sh -s examples-51degrees-nginx
@@ -222,11 +210,15 @@ configure-no-module: clean
 data-file-dd:
 ifeq ($(FILEPATH),$(DEFAULT_FILEPATH))
 	@[ -f "$(FILEPATH)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH))
+else
+	@[ -f "$(FILEPATH)" ] || { echo "_51DEGREES_DD_PATH is set to $(FILEPATH), which does not exist."; exit 1; }
 endif
 
 data-file-ipi:
 ifeq ($(FILEPATH_IPI),$(DEFAULT_FILEPATH_IPI))
 	@[ -f "$(FILEPATH_IPI)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH_IPI))
+else
+	@[ -f "$(FILEPATH_IPI)" ] || { echo "_51DEGREES_IPI_PATH is set to $(FILEPATH_IPI), which does not exist."; exit 1; }
 endif
 
 install: $(INSTALL_DATA) configure
@@ -290,7 +282,7 @@ test-examples: test-prep data-file-dd data-file-ipi
 ifeq (,$(wildcard $(FULLPATH)/nginx))
 	$(error Local binary must be built first (use "make install"))
 else
-	$(eval CMD := TEST_NGINX_BINARY="$(FULLPATH)/nginx" TEST_MODULE_PATH="$(FULLPATH)/build/" TEST_NGINX_STATIC="$(TEST_NGINX_STATIC)" TEST_FILE_PATH="$(FILEPATH)" TEST_FILE_PATH_IPI="$(FILEPATH_IPI)" ASAN_OPTIONS=detect_odr_violation=0 LSAN_OPTIONS=suppressions=suppressions.txt prove $(FIFTYONEDEGREES_FORMATTER) -v $(EXAMPLE_TESTS) :: $(DATAFILE))
+	$(eval CMD := TEST_NGINX_BINARY="$(FULLPATH)/nginx" TEST_MODULE_PATH="$(FULLPATH)/build/" TEST_NGINX_STATIC="$(TEST_NGINX_STATIC)" _51DEGREES_DD_PATH="$(FILEPATH)" _51DEGREES_IPI_PATH="$(FILEPATH_IPI)" ASAN_OPTIONS=detect_odr_violation=0 LSAN_OPTIONS=suppressions=suppressions.txt prove $(FIFTYONEDEGREES_FORMATTER) -v $(EXAMPLE_TESTS) :: $(DATAFILE))
 ifdef FIFTYONEDEGREES_TEST_OUTPUT
 	$(CMD) > $(FIFTYONEDEGREES_TEST_OUTPUT)
 else
