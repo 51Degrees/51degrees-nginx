@@ -22,51 +22,32 @@ endif
 
 
 FULLPATH := $(shell pwd)
-ifndef FIFTYONEDEGREES_DATAFILE
-	DATAFILE := 51Degrees-LiteV4.1.hash
-else
-$(warning FIFTYONEDEGREES_DATAFILE is deprecated and will be removed in a future release. Use _51DEGREES_DD_PATH, or 51DEGREES_DD_PATH on the make command line, with an explicit path to the data file instead.)
-	DATAFILE := $(FIFTYONEDEGREES_DATAFILE)
-endif
-
-ifndef FIFTYONEDEGREES_DATAFILE_IPI
-	DATAFILE_IPI := 51Degrees-LiteV41.ipi
-else
-$(warning FIFTYONEDEGREES_DATAFILE_IPI is deprecated and will be removed in a future release. Use _51DEGREES_IPI_PATH, or 51DEGREES_IPI_PATH on the make command line, with an explicit path to the data file instead.)
-	DATAFILE_IPI := $(FIFTYONEDEGREES_DATAFILE_IPI)
-endif
+DATAFILE := 51Degrees-LiteV4.1.hash
+DATAFILE_IPI := 51Degrees-LiteV41.ipi
 
 MODULEPATH := $(FULLPATH)/build/modules/ngx_http_51D_module.so
 FILEPATH := $(FULLPATH)/cxx/data/device-detection/$(DATAFILE)
 FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/$(DATAFILE_IPI)
 
-# A path to the device detection data file comes from 51DEGREES_DD_PATH on
-# the make command line, or else from the _51DEGREES_DD_PATH environment
-# variable. The deprecated FIFTYONEDEGREES_DATAFILE above gives only a file
-# name, which is looked for in the data folder.
+# A path to the device detection data file comes from _51DEGREES_DD_PATH,
+# set in the environment or on the make command line. When it is not set, the
+# free file in the data folder is used.
 ifdef _51DEGREES_DD_PATH
 	FILEPATH := $(_51DEGREES_DD_PATH)
 	DATAFILE := $(notdir $(_51DEGREES_DD_PATH))
 endif
-ifdef 51DEGREES_DD_PATH
-	FILEPATH := $(51DEGREES_DD_PATH)
-	DATAFILE := $(notdir $(51DEGREES_DD_PATH))
-endif
 
-# A path to the IP intelligence data file comes from 51DEGREES_IPI_PATH or
-# _51DEGREES_IPI_PATH in the same way.
+# A path to the IP intelligence data file comes from _51DEGREES_IPI_PATH in
+# the same way.
 ifdef _51DEGREES_IPI_PATH
 	FILEPATH_IPI := $(_51DEGREES_IPI_PATH)
 	DATAFILE_IPI := $(notdir $(_51DEGREES_IPI_PATH))
 endif
-ifdef 51DEGREES_IPI_PATH
-	FILEPATH_IPI := $(51DEGREES_IPI_PATH)
-	DATAFILE_IPI := $(notdir $(51DEGREES_IPI_PATH))
-endif
 
 # A fresh clone has no data files. When the file in use is the free one the
 # examples name by default and it is missing, the data repository's script
-# downloads it. A file named any other way is never downloaded.
+# downloads it. A file named any other way is never downloaded, and make stops
+# with the name that gave it when it is missing.
 DEFAULT_FILEPATH := $(FULLPATH)/cxx/data/device-detection/51Degrees-LiteV4.1.hash
 DEFAULT_FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/51Degrees-LiteV41.ipi
 GET_DATA_FILES := sh $(FULLPATH)/cxx/data/get-data-files.sh -s examples-51degrees-nginx
@@ -229,11 +210,15 @@ configure-no-module: clean
 data-file-dd:
 ifeq ($(FILEPATH),$(DEFAULT_FILEPATH))
 	@[ -f "$(FILEPATH)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH))
+else
+	@[ -f "$(FILEPATH)" ] || { echo "_51DEGREES_DD_PATH is set to $(FILEPATH), which does not exist."; exit 1; }
 endif
 
 data-file-ipi:
 ifeq ($(FILEPATH_IPI),$(DEFAULT_FILEPATH_IPI))
 	@[ -f "$(FILEPATH_IPI)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH_IPI))
+else
+	@[ -f "$(FILEPATH_IPI)" ] || { echo "_51DEGREES_IPI_PATH is set to $(FILEPATH_IPI), which does not exist."; exit 1; }
 endif
 
 install: $(INSTALL_DATA) configure

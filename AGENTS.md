@@ -70,7 +70,7 @@ sh cxx/data/get-data-files.sh 51Degrees-LiteV4.1.hash 51Degrees-LiteV41.ipi
 ```
 
 The script keeps a file that is already there. A file named with
-`51DEGREES_DD_PATH` or `51DEGREES_IPI_PATH` is never downloaded.
+`_51DEGREES_DD_PATH` or `_51DEGREES_IPI_PATH` is never downloaded.
 
 #### Check the files
 
@@ -255,7 +255,7 @@ There are none. The nginx modules work only on-premise, with a data file.
   adds a header only to some response codes, such as 200 and not 404, so ask
   for the path the example serves, such as `/hash` or `/ipi`.
 - **What CI tests.** CI builds with the paid `TAC-HashV41.hash`
-  (`51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
+  (`_51DEGREES_DD_PATH` in `ci/build-project.ps1` and the test scripts), and
   runs the example tests on it and again on the free Lite file, which a fresh
   clone uses. `ci/fetch-assets.ps1` takes every data file from common-ci's
   assets, which each run fetches once and caches because the workflows set

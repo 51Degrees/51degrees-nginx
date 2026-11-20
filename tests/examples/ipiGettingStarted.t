@@ -60,9 +60,9 @@ sub read_example($) {
 }
 
 # The IP intelligence data file is optional for the test suite. Skip the
-# tests if it is not present.
+# tests when _51DEGREES_IPI_PATH is not set.
 my $ipiFilePath = ipi_file_path();
-if (!defined $ipiFilePath || !-e $ipiFilePath) {
+if (!defined $ipiFilePath) {
 	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 

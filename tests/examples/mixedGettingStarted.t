@@ -60,14 +60,11 @@ sub read_example($) {
 	return $content;
 }
 
-# Both data files are required for this test. Skip when either is not
-# present.
+# Both data files are required for this test. A missing device detection
+# file stops it, and it skips when _51DEGREES_IPI_PATH is not set.
 my $hashFilePath = hash_file_path();
 my $ipiFilePath = ipi_file_path();
-if (!defined $hashFilePath || !-e $hashFilePath) {
-	plan(skip_all => 'No device detection data file. Set _51DEGREES_DD_PATH.');
-}
-if (!defined $ipiFilePath || !-e $ipiFilePath) {
+if (!defined $ipiFilePath) {
 	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 

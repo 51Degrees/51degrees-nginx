@@ -44,7 +44,7 @@ select STDOUT; $| = 1;
 }
 
 my $ipiFilePath = ipi_file_path();
-if (!defined $ipiFilePath || !-e $ipiFilePath) {
+if (!defined $ipiFilePath) {
 	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 

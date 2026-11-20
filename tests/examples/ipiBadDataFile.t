@@ -25,7 +25,7 @@ select STDOUT; $| = 1;
 
 # The files that are refused are made from a good data file.
 my $goodFile = ipi_file_path();
-if (!defined $goodFile || !-e $goodFile) {
+if (!defined $goodFile) {
 	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 

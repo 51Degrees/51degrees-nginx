@@ -15,7 +15,7 @@ try {
     $target = $MemCheck ? 'mem-check' : 'install'
 
     Write-Host "Building module, target $target $build"
-    make DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=$NginxVersion "51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" $build $target
+    make DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=$NginxVersion "_51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" $build $target
 } finally {
     Pop-Location
 }
