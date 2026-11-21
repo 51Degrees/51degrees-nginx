@@ -17,8 +17,12 @@ use File::Copy;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../nginx-tests/lib';
+use lib '../lib';
+use FiftyOneDataFiles qw(hash_file_path);
 use Test::Nginx;
 use URI::Escape;
+
+my $hashFilePath = hash_file_path();
 
 ###############################################################################
 
@@ -47,7 +51,7 @@ $t_file =~ s/%%MODULE_PATH%%/$ENV{TEST_MODULE_PATH}/gmse;
 # object.
 $t_file =~ s/^.*load_module.*
 //mg if $ENV{TEST_NGINX_STATIC};
-$t_file =~ s/%%FILE_PATH%%/$ENV{TEST_FILE_PATH}/gmse;
+$t_file =~ s/%%FILE_PATH%%/$hashFilePath/gmse;
 $t->write_file_expand('nginx.conf', $t_file);
 
 $t->write_file('query', '');
@@ -85,7 +89,7 @@ like($r, qr/x-mobile-all: True/, 'Mobile match (all)');
 
 # The hardware properties are only in the Enterprise data file. On the free
 # Lite data file they read NoMatch, and x-enterprise links to ask for a copy.
-if (index($ENV{TEST_FILE_PATH}, '51Degrees-Lite') != -1) {
+if (index($hashFilePath, '51Degrees-Lite') != -1) {
 	like($r, qr/x-hardware: NoMatch,NoMatch,NoMatch\r/, 'Hardware needs the Enterprise data file');
 	like($r, qr/x-enterprise: .+https:\/\/51degrees\.com\/contact-us\?/, 'Link to ask for the Enterprise data file');
 }
