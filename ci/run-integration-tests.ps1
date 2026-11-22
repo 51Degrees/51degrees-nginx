@@ -14,7 +14,7 @@ try {
     # Disable leak checks here, as they are for the unit tests.
     $env:ASAN_OPTIONS="detect_odr_violation=0:detect_leaks=0"
 
-    Write-Host "Setting up the CDN example"
+    Write-Host "Setting up the JavaScript example"
     # Copy the example config
     Copy-Item examples/hash/jsExample/javascript.conf build/nginx.conf
     # Set the data file
@@ -30,20 +30,56 @@ try {
     # The example's instructions create a static file for /overrides, without
     # which NGINX answers 404 with none of the headers the page reads.
     New-Item -ItemType File -Force build/html/overrides | Out-Null
+    # NGINX serves the example's page as well, because a page opened from a
+    # file cannot keep the cookie the module's JavaScript sets.
+    New-Item -ItemType Directory -Force build/html/jsExample | Out-Null
+    Copy-Item examples/hash/jsExample/index.html build/html/jsExample/index.html
+
+    # The browser test is the ModuleJavaScript category of the shared browser
+    # test suite, checked out beside this repository as the API repositories
+    # do. The suite finds and starts Chrome, Firefox and their drivers, so
+    # nothing here does. It is built before NGINX starts.
+    $suite = [IO.Path]::GetFullPath("$PSScriptRoot/../../selenium-api-tests")
+    if (-not (Test-Path $suite)) {
+        git clone --depth 1 https://github.com/51Degrees/selenium-api-tests.git $suite
+    }
+    git -C $suite log -1 --format="selenium-api-tests at %H %s"
+    dotnet build $suite -c Release
+
     # Start NGINX
     ./nginx
-
-    # Run the selenium tests
-    Push-Location "$PSScriptRoot/../tests/examples/jsExample"
     try {
-        Write-Host "Running CDN tests"
-        $env:PATH="$($env:PATH):$pwd/driver"
-        npm install
-        npx browserslist@latest --update-db
-        npm test
+        $env:EXAMPLE_URL = "http://localhost:8888/jsExample/index.html"
+        # Seconds NGINX has to serve the page before the tests start.
+        $pageWaitSeconds = 30
+        curl -sS -o /dev/null --retry $pageWaitSeconds --retry-delay 1 --retry-connrefused $env:EXAMPLE_URL
+
+        Write-Host "Running the browser test of the JavaScript example"
+        $browserResults = New-Item -ItemType directory -Force -Path test-results/browser
+        $trx = "module-javascript.trx"
+        # The exit code is checked after the results file is read, so a
+        # failing run still says how many tests passed.
+        $PSNativeCommandUseErrorActionPreference = $false
+        dotnet test $suite -c Release --no-build --filter TestCategory=ModuleJavaScript `
+            --logger "trx;LogFileName=$trx" --logger "console;verbosity=normal" `
+            --results-directory $browserResults
+        $testExit = $LASTEXITCODE
+        $PSNativeCommandUseErrorActionPreference = $true
+        # dotnet test passes a run that found no test, or whose tests were
+        # skipped, so the results file decides, and every test in it must
+        # have passed.
+        $counters = $null
+        if (Test-Path "$browserResults/$trx") {
+            $counters = ([xml](Get-Content -Raw "$browserResults/$trx")).TestRun.ResultSummary.Counters
+            Write-Host "ModuleJavaScript: $($counters.passed) of $($counters.total) passed"
+        }
+        if ($testExit -ne 0 -or -not $counters -or [int]$counters.total -eq 0 -or
+            $counters.passed -ne $counters.total) {
+            throw "The browser test of the JavaScript example failed"
+        }
     }
     finally {
-        Pop-Location
+        Remove-Item Env:EXAMPLE_URL -ErrorAction SilentlyContinue
         Write-Host "Stopping NGINX"
         ./nginx -s quit
     }

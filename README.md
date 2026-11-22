@@ -438,22 +438,15 @@ make test-examples _51DEGREES_DD_PATH=[Path to obtained data file] _51DEGREES_IP
 ```
 
 ### JavaScript and overrides example test
-The JavaScript and overrides example test is designed to be run separately with Selenium using Node.js. The test is located in `tests/examples/jsExample` directory. To run the test, follow the below steps:
-- Make sure to have Chrome, Firefox and Edge installed.
-- Download and install their drivers.
-- Ensure the browser versions and the drivers versions are aligned.
-- Navigate to the directory `tests/examples/jsExample` and run:
+The JavaScript and overrides example is tested in Chrome and Firefox by the `ModuleJavaScript` tests of the shared browser test suite, [selenium-api-tests](https://github.com/51Degrees/selenium-api-tests), which finds and starts the browsers and their drivers. `ci/run-integration-tests.ps1` checks the suite out beside this repository and runs it as below. The data file needs the ScreenPixelsWidthJavascript property, which the free Lite data file does not have.
+- Start NGINX with `javascript.conf` as described in the file itself, with `index.html` copied to `build/html/jsExample/index.html` so that NGINX serves the page as well.
+- Check out the suite beside this repository and run:
 ```
-npm install
+git clone https://github.com/51Degrees/selenium-api-tests.git ../selenium-api-tests
+EXAMPLE_URL=http://localhost:8888/jsExample/index.html dotnet test ../selenium-api-tests --filter TestCategory=ModuleJavaScript
 ```
-  - This will installed all required package including the Selenium web driver.
-  - Start NGINX with the `javascript.conf` as described in the file itself.
-  - Run the test
-```
-npm test
-```
-  - Result is output to a file called `cdn_test_results.xml`.
-  - Stop the NGINX.
+  - The tests need the .NET 10 SDK, Chrome and Firefox. A driver the machine provides is used, and Selenium Manager fetches one otherwise.
+  - Stop NGINX.
 
 ## Re-certify 51Degrees module
 When a new release is made to the 51Degrees module, module maintainer will need to re-certify it the NGINX Plus for target releases.
