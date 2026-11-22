@@ -82,7 +82,9 @@ else
 		MODULE_ARGS := --add-module=$(CURDIR)/51Degrees_ipi_module
 		# Only the IP intelligence example uses just the IP intelligence module.
 		EXAMPLE_TESTS := tests/examples/ipiGettingStarted.t \
-			tests/examples/ipiBadDataFile.t tests/examples/signalBadDataFile.t
+			tests/examples/ipiBadDataFile.t \
+			tests/examples/ipiPerformanceProfile.t \
+			tests/examples/signalBadDataFile.t
 	else
 		MODULE_ARGS := --add-module=$(CURDIR)/51Degrees_hash_module
 		# The device detection examples use only the device detection module.
