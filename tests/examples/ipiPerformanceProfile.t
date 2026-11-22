@@ -18,22 +18,26 @@ use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
+use lib '../lib';
+use FiftyOneBuild qw(build_path static_build);
+use FiftyOneDataFiles qw(ipi_file_path);
+
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
-my $file = $ENV{TEST_FILE_PATH_IPI};
-if (!defined $file || !-e $file) {
-	plan(skip_all => 'No IP intelligence data file. Set TEST_FILE_PATH_IPI.');
+my $file = ipi_file_path();
+if (!defined $file) {
+	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 if (!-d '/proc/self/fd') {
 	plan(skip_all => 'The open files of the master are read from /proc.');
 }
 
 my $nginx = $ENV{TEST_NGINX_BINARY};
-my $loadModule = $ENV{TEST_NGINX_STATIC} ? '' :
-	"load_module $ENV{TEST_MODULE_PATH}modules/ngx_http_51D_ipi_module.so;";
+my $loadModule = static_build() ? '' :
+	'load_module ' . build_path() . 'modules/ngx_http_51D_ipi_module.so;';
 my $dir = tempdir('nginx-ipi-profile-XXXXXXXXXX', TMPDIR => 1, CLEANUP => 1);
 my $port = 8099;
 my $startSeconds = 300;

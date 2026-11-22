@@ -1,9 +1,6 @@
 param(
     [Parameter(Mandatory)][string]$RepoName,
     [bool]$FullTests,
-    [string]$NginxKey,
-    [string]$NginxCert,
-    [string]$NginxJwtToken,
     [string]$Name = "1.21.3 dynamic",
     [string]$NginxVersion = "1.21.3",
     [string]$NginxPlusVersion = "25",
@@ -60,6 +57,14 @@ finally {
 
 # If full tests are requested, then we'll need to install NGINX Plus
 if ($FullTests -eq $True) {
+    # The key, the certificate, and the license token of the NGINX Plus
+    # subscription come from the environment.
+    foreach ($secret in '_51DEGREES_NGINX_PLUS_KEY', '_51DEGREES_NGINX_PLUS_CERT', '_51DEGREES_NGINX_PLUS_JWT_TOKEN') {
+        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($secret))) {
+            throw "$secret is not set, so NGINX Plus cannot be installed."
+        }
+    }
+
     Write-Output "Uninstall existing Nginx"
     sudo apt-get purge nginx -y
 
@@ -69,9 +74,9 @@ if ($FullTests -eq $True) {
 
 # Write the key and certificate files for NGINX Plus so it can be installed.
     Write-Output "Copy NGINX Plus credentials to the created directory"
-    $NginxKey | sudo cp /dev/stdin /etc/ssl/nginx/nginx-repo.key
-    $NginxCert | sudo cp /dev/stdin /etc/ssl/nginx/nginx-repo.crt
-    $NginxJwtToken | sudo cp /dev/stdin /etc/nginx/license.jwt
+    $env:_51DEGREES_NGINX_PLUS_KEY | sudo cp /dev/stdin /etc/ssl/nginx/nginx-repo.key
+    $env:_51DEGREES_NGINX_PLUS_CERT | sudo cp /dev/stdin /etc/ssl/nginx/nginx-repo.crt
+    $env:_51DEGREES_NGINX_PLUS_JWT_TOKEN | sudo cp /dev/stdin /etc/nginx/license.jwt
 
     Write-Output "Setting permissions for the certificates"
     sudo chown -R root:root /etc/ssl/nginx

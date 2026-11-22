@@ -263,7 +263,7 @@ All examples are located in the `examples` folder. Device detection examples are
 |jsExample|Shows how to use 51D_get_javascript* directive to get the JavaScript to obtain further evidences from the client. To run this example, start NGINX with the included `javascript.conf` set as the configuration file. Once NGINX fully start, open `index.html` in a browser to see that the screen width is now set correctly.|
 <br>
 
-To run an example, `make install` writes the getting started example for `API` as `build/nginx.conf`, and `EXAMPLE` names another in `examples/hash`, for example `make install EXAMPLE=config`, filling in its data file and creating the file it serves. Each example's comment gives its request.
+To run an example, `make install` writes the getting started example for `_51DEGREES_API` as `build/nginx.conf`, and `_51DEGREES_EXAMPLE` names another in `examples/hash`, for example `make install _51DEGREES_EXAMPLE=config`, filling in its data file and creating the file it serves. Each example's comment gives its request.
 
 # Build and test (Linux)
 Before build and test the 51Degrees module, make sure to check out the project and all of its sub-modules.
@@ -308,20 +308,39 @@ To build the modules and NGINX, run the following command.
 ```
 make install
 ```
-By default this builds NGINX 1.29.3, the newest version CI builds and tests. To build another version of NGINX, run the above command with the `FIFTYONEDEGREES_NGINX_VERSION` variable, for example.
+By default this builds NGINX 1.29.3, the newest version CI builds and tests. To build another version of NGINX, run the above command with the `_51DEGREES_NGINX_VERSION` variable, for example.
 ```
-make install FIFTYONEDEGREES_NGINX_VERSION=[Version]
+make install _51DEGREES_NGINX_VERSION=[Version]
 ```
 <br>
 
-To build and link a module statically with NGINX, use `STATIC_BUILD` variable. Only one of the modules can be linked statically into a binary as each carries its own copy of the common 51Degrees sources. The module is selected with the `API` variable which defaults to `hash` (Device Detection). e.g.
+To build and link a module statically with NGINX, use the `_51DEGREES_STATIC_BUILD` variable. Only one of the modules can be linked statically into a binary as each carries its own copy of the common 51Degrees sources. The module is selected with the `_51DEGREES_API` variable which defaults to `hash` (Device Detection). e.g.
 ```
-make install STATIC_BUILD=1
-make install STATIC_BUILD=1 API=ipi
+make install _51DEGREES_STATIC_BUILD=1
+make install _51DEGREES_STATIC_BUILD=1 _51DEGREES_API=ipi
 ```
 <br>
 
 The NGINX executable will be output to the project root directory. The prefix path of the NGINX will be set to `build` directory. A `nginx.conf` is also included with a simple example of `51D_match_ua`, `51D_match_ua_client_hints` and `51D_match_all` directives, set in a static content location. The build process has created the static file in the `build/html` folder so you can start NGINX and start sending requests to that static content endpoint.
+
+## Names
+
+Every setting this repository reads is named `_51DEGREES_<NAME>`. Each one can be given on the make command line, and those marked with * also in the environment.
+
+|Name|What it holds|
+|----|-------------|
+|`_51DEGREES_DD_PATH` *|The path of the Device Detection data file for the build, the tests, and the performance tests. When it is not set, the free Lite file in `cxx/data/device-detection` is used.|
+|`_51DEGREES_IPI_PATH` *|The path of the IP Intelligence data file, in the same way. When it is not set, a free file in `cxx/data/ip-intelligence` is used.|
+|`_51DEGREES_NGINX_VERSION` *|The version of NGINX to build.|
+|`_51DEGREES_API`|The module `make install` writes an example for and a static build links, which is `hash` (the default), `ipi`, or `mixed`.|
+|`_51DEGREES_EXAMPLE`|The example in `examples/hash` that `make install` writes as `build/nginx.conf`.|
+|`_51DEGREES_STATIC_BUILD` *|When set, links one module into the NGINX binary in place of building modules to load.|
+|`_51DEGREES_TEST_OUTPUT` *|The file a test run writes a JUnit report to. See [Test options](#test-options).|
+|`_51DEGREES_DONT_CLEAN_TESTS` *|When set, `make clean` keeps the NGINX tests downloaded into `tests/nginx-tests`.|
+
+The Docker example in `examples/curl` takes the build arguments `_51DEGREES_REPOSITORY`, `_51DEGREES_BRANCH`, `_51DEGREES_COMMIT`, and `_51DEGREES_NGINX_VERSION`, which name what the image builds. Its workflow allows `_51DEGREES_START_SECONDS` for the image to answer.
+
+CI reads the secrets `_51DEGREES_LICENSE_KEY`, `_51DEGREES_NGINX_PLUS_KEY`, `_51DEGREES_NGINX_PLUS_CERT`, and `_51DEGREES_NGINX_PLUS_JWT_TOKEN`, which [ci/README.md](ci/README.md) describes.
 
 ## Test
 All tests are allocated in the `tests` folder.
@@ -333,7 +352,7 @@ To be able to test the 51Degrees module the following libraries are required.
 - curl
 - grep
 
-Before running any test, make sure to build the project with `make install` command. The tests are designed to test the dynamic build only so `STATIC_BUILD` will not work.
+Before running any test, make sure to build the project with `make install` command. The tests are designed to test the dynamic build only so `_51DEGREES_STATIC_BUILD` will not work.
 
 To run the 51Degrees tests with the free 51Degrees Lite data file in the `cxx/data/device-detection` directory, download it as described in [Data files](#data-files), then run the following command.
 ```
@@ -382,7 +401,7 @@ The project also include a performance test suite. This required `CMake 3.24` or
 
 To run the performance test, please follow the below steps:
 - Make sure to build the project with `make install`.
-- Download the Lite data file, and the Asn file for `ENGINE=ipi`, as described in [Data files](#data-files). CMake downloads the User-Agents and evidence records files into `cxx/data/device-detection` when they are missing.
+- Download the Lite data file, and the Asn file for the IP Intelligence test, as described in [Data files](#data-files). CMake downloads the evidence records file into `cxx/data/device-detection` when it is missing.
 - Navigate to the `tests/performance` directory.
 - Create a `build` folder and navigate to it.
 - Run:
@@ -393,11 +412,11 @@ cmake --build .
 ```
   - This step will build our internal version of `Apache Benchmark` and use it for performance testing.
 
-By default the performance test exercises the Device Detection module using a file of 20,000 User-Agents. To run the same test against the IP Intelligence module, set the `ENGINE` variable:
+By default the performance test exercises the Device Detection module, sending the headers of one of 20,000 evidence records with each request. To run the same test against the IP Intelligence module, give `ipi` as the argument:
 ```
-ENGINE=ipi ./runPerf.sh
+./runPerf.sh ipi
 ```
-This uses the `evidence.csv` file of 20,000 IP addresses in the `cxx/data/ip-intelligence` folder, with each request carrying an IP address which the `51D_match_ipi` directive reads from the User-Agent header via the `$http_user_agent` variable. The nightly CI runs both variants and records a `DetectionsPerSecond` result for each, which feeds the benchmark graphs published from the `gh-images` branch.
+This uses the `evidence.yml` file of IP addresses in the `cxx/data/ip-intelligence` folder, with each request carrying an IP address which the `51D_match_ipi` directive reads from the User-Agent header via the `$http_user_agent` variable. The test uses the data file `_51DEGREES_DD_PATH` names for Device Detection and `_51DEGREES_IPI_PATH` for IP Intelligence, and the free Lite and Asn files when they are not set. The nightly CI runs both variants and records a `DetectionsPerSecond` result for each, which feeds the benchmark graphs published from the `gh-images` branch.
 
 # For developers
 
@@ -411,8 +430,7 @@ make all-versions
 There are number of test options that are recommended for development only.
 |Build Option|Description|
 |------------|-----------|
-|FIFTYONEDEGREES_FORMATTER|This is only available when running with `test` or `test-full` target. This allow to specify the formatter that can be use to format the test report. e.g. `make test FIFTYONEDEGREES_FORMATTER=--formatter TAP::Formatter::Junit`. This example will output a JUnit report and requires the module TAP::Formatter::JUnit to be installed. `cpan` and `cpanm` are recommended to install this module.|
-|FIFTYONEDEGREES_TEST_OUTPUT| This specifies the file that the test report should be written to. e.g. `make test FIFTYONEDEGREES_TEST_OUTPUT=test.xml`|
+|`_51DEGREES_TEST_OUTPUT`|This is available when running the `test`, `test-full`, or `test-examples` target. It names the file that a JUnit test report is written to, e.g. `make test _51DEGREES_TEST_OUTPUT=test.xml`. The report requires the module TAP::Formatter::JUnit to be installed. `cpan` and `cpanm` are recommended to install this module.|
 
 ## Memory check
 The project can be built with address sanitizer enabled. To do so, run:

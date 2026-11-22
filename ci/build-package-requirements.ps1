@@ -14,7 +14,7 @@ Push-Location $RepoPath
 
 try {
 
-    make install FIFTYONEDEGREES_NGINX_VERSION=$NginxVersion
+    make install _51DEGREES_NGINX_VERSION=$NginxVersion
         
     # Create a directory for binary files from which they will be uploaded
     # as artifacts.

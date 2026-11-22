@@ -27,7 +27,7 @@ try {
 
         # Install NGINX without building the module.
         Write-Output "Install NGINX '$NginxVersion' without 51Degrees module"
-        make install-no-module FIFTYONEDEGREES_NGINX_VERSION=$NginxVersion
+        make install-no-module _51DEGREES_NGINX_VERSION=$NginxVersion
 
         # Now copy both modules to the installs module directory
         mkdir $ModulesPath

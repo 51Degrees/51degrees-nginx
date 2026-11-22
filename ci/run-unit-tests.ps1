@@ -10,9 +10,9 @@ $ErrorActionPreference = "Stop"
 $failed = $false
 
 # A static build links the module into the Nginx binary, so the tests must
-# not try to load it with load_module. Pass STATIC_BUILD through to make so
-# the load_module directive is omitted.
-$staticBuild = $BuildMethod -eq 'static' ? 'STATIC_BUILD=1' : $null
+# not try to load it with load_module. Pass _51DEGREES_STATIC_BUILD through
+# to make so the load_module directive is omitted.
+$staticBuild = $BuildMethod -eq 'static' ? '_51DEGREES_STATIC_BUILD=1' : $null
 
 $assets = "$PWD/assets"
 
@@ -22,8 +22,14 @@ try {
     # Create the output directory
     $results = New-Item -ItemType directory -Force -Path test-results/unit
 
+    # The tests of the CI scripts run in a process of their own, as Pester
+    # writes into the scope that calls it.
+    Write-Host "Running the CI script tests"
+    pwsh -NoProfile -Command "`$run = New-PesterConfiguration; `$run.Run.Path = 'ci'; `$run.Run.Exit = `$true; `$run.Output.Verbosity = 'Detailed'; Invoke-Pester -Configuration `$run"
+    if ($LASTEXITCODE -ne 0) { $failed = $true }
+
     Write-Host "Running 51Degrees unit tests"
-    make test $staticBuild "_51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/$Name.xml || $($failed = $true)
+    make test $staticBuild "_51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" _51DEGREES_TEST_OUTPUT=$results/$Name.xml || $($failed = $true)
     # Output the full results file, as some bits are not reported in GitHub
     Get-Content -Raw $results/$Name.xml
 
@@ -50,7 +56,7 @@ try {
 
         # If full tests are requested, then run the full test suite (NGINX core tests, with the module enabled)
         Write-Host "Running full NGINX unit tests"
-        make test-full DONT_CLEAN_TESTS=1 "_51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Full.xml || $($failed = $true)
+        make test-full _51DEGREES_DONT_CLEAN_TESTS=1 "_51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" _51DEGREES_TEST_OUTPUT=$results/${Name}_Full.xml || $($failed = $true)
 
         # Now do the same with the NGINX Plus executable
         Write-Host "Running full NGINX unit tests against NGINX Plus"
