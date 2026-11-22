@@ -30,8 +30,9 @@ try {
     # The example's instructions create a static file for /overrides, without
     # which NGINX answers 404 with none of the headers the page reads.
     New-Item -ItemType File -Force build/html/overrides | Out-Null
-    # NGINX serves the example's page as well, because a page opened from a
-    # file cannot keep the cookie the module's JavaScript sets.
+    # NGINX serves the example's page as well, because Chrome keeps no cookie
+    # for a page opened from a file, so the evidence the module's JavaScript
+    # writes would never reach the module.
     New-Item -ItemType Directory -Force build/html/jsExample | Out-Null
     Copy-Item examples/hash/jsExample/index.html build/html/jsExample/index.html
 
