@@ -57,7 +57,7 @@ finally {
 
 # If full tests are requested, then we'll need to install NGINX Plus
 if ($FullTests -eq $True) {
-    # The key, the certificate and the licence token of the NGINX Plus
+    # The key, the certificate, and the license token of the NGINX Plus
     # subscription come from the environment.
     foreach ($secret in '_51DEGREES_NGINX_PLUS_KEY', '_51DEGREES_NGINX_PLUS_CERT', '_51DEGREES_NGINX_PLUS_JWT_TOKEN') {
         if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($secret))) {

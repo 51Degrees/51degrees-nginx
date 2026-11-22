@@ -4,7 +4,7 @@ $data = "$PSScriptRoot/../cxx/data"
 
 # Every data file the tests read is an asset, which the run caches once, so a
 # test job restores the files rather than downloading them. The step that
-# fetches them reads the licence key from _51DEGREES_LICENSE_KEY.
+# fetches them reads the License Key from _51DEGREES_LICENSE_KEY.
 $assets = "TAC-HashV41.hash", "20000 Evidence Records.yml"
 $liteHash = "51Degrees-LiteV4.1.hash"
 $asn = "51Degrees-IPIV4AsnIpiV41.ipi"
