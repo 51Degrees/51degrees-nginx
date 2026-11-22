@@ -16,6 +16,7 @@ use Test::More;
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../lib';
+use FiftyOneBuild qw(build_path static_build);
 use FiftyOneDataFiles qw(ipi_file_path);
 
 ###############################################################################
@@ -36,8 +37,8 @@ my $shiftOffset = 54;
 
 my $nginx = $ENV{TEST_NGINX_BINARY};
 my $dir = tempdir('nginx-ipi-XXXXXXXXXX', TMPDIR => 1, CLEANUP => 1);
-my $loadModule = $ENV{TEST_NGINX_STATIC} ? '' :
-	"load_module $ENV{TEST_MODULE_PATH}modules/ngx_http_51D_ipi_module.so;";
+my $loadModule = static_build() ? '' :
+	'load_module ' . build_path() . 'modules/ngx_http_51D_ipi_module.so;';
 
 sub read_binary {
 	my ($path) = @_;

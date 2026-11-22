@@ -3,16 +3,19 @@
 For the general CI Approach, see [common-ci](https://github.com/51degrees/common-ci).
 
 The following secrets are required:
-* `ACCESS_TOKEN` - GitHub [access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) for cloning repos, creating PRs, etc.
+* `_51DEGREES_ACCESS_TOKEN` - GitHub [access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) for cloning repos, creating PRs, etc.
     * Example: `github_pat_l0ng_r4nd0m_s7r1ng`
   
 The following secrets are required to run tests:
-* `DEVICE_DETECTION_KEY` - [license key](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=ci-readme.md&utm_term=api-specific-ci-approach) for downloading assets (TAC hashes file and TAC CSV data file)
+* `_51DEGREES_LICENSE_KEY` - [license key](https://51degrees.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=51degrees-nginx&utm_content=ci-readme.md&utm_term=api-specific-ci-approach) for downloading assets (the TAC data file)
     * Example: `V3RYL0NGR4ND0M57R1NG`
 
-The following secrets are required to run the full set of tests agains NGINX Plus:
-* `NGINX_PLUS_KEY` - Signing key used for installing NGINX Plus
-* `NGINX_PLUS_CERT` - NGINX Plus certificate
+The following secrets are required to run the full set of tests against NGINX Plus. `setup-environment.ps1` reads each from the environment variable of the same name:
+* `_51DEGREES_NGINX_PLUS_KEY` - Signing key used for installing NGINX Plus
+* `_51DEGREES_NGINX_PLUS_CERT` - NGINX Plus certificate
+* `_51DEGREES_NGINX_PLUS_JWT_TOKEN` - NGINX Plus license token
+
+The [README](../README.md#names) lists the other names this repository reads. `names.Tests.ps1` checks that every name starts `_51DEGREES_`, and `run-unit-tests.ps1` runs it.
 
 ### Differences
 - There are no packages produced by this repository, so the only output from the `Nightly Publish Main` workflow is a new tag and release.
@@ -40,7 +43,7 @@ every entry.
 ## Prerequisites
 
 In addition to the [common prerequisites](https://github.com/51Degrees/common-ci#prerequisites), the following environment variables are required:
-- DEVICE_DETECTION_KEY - License key to download a data file for testing
-- DEVICE_DETECTION_URL - Url to download the data file from (optional)
-- NGINX_PLUS_KEY - Signing key used for installing NGINX Plus
-- NGINX_PLUT_CERT - NGINX Plus certificate
+- `_51DEGREES_LICENSE_KEY` - License key to download a data file for testing
+- `_51DEGREES_NGINX_PLUS_KEY` - Signing key used for installing NGINX Plus
+- `_51DEGREES_NGINX_PLUS_CERT` - NGINX Plus certificate
+- `_51DEGREES_NGINX_PLUS_JWT_TOKEN` - NGINX Plus license token

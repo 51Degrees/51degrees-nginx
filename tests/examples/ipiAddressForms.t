@@ -15,6 +15,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../nginx-tests/lib';
 use lib '../lib';
+use FiftyOneBuild qw(build_path static_build);
 use FiftyOneDataFiles qw(ipi_file_path);
 use Test::Nginx;
 use POSIX qw/ WNOHANG /;
@@ -48,8 +49,8 @@ if (!defined $ipiFilePath) {
 	plan(skip_all => 'No IP intelligence data file. Set _51DEGREES_IPI_PATH.');
 }
 
-my $loadModule = $ENV{TEST_NGINX_STATIC} ? '' :
-	"load_module $ENV{TEST_MODULE_PATH}modules/ngx_http_51D_ipi_module.so;";
+my $loadModule = static_build() ? '' :
+	'load_module ' . build_path() . 'modules/ngx_http_51D_ipi_module.so;';
 
 # The Asn file has AsnName, and the Lite and Enterprise files have
 # RegisteredName. NGINX does not start when the file has none of the

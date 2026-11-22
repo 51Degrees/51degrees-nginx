@@ -1,18 +1,17 @@
 #!/bin/bash
 
 ## Set test constants. ##
-if [ "$REQUESTS" == "" ]; then
 REQUESTS=100000
-fi
 LIMIT=0.500
 RELOADLIMIT=1000
-if [ "$RELOADSTODO" == "" ]; then
 RELOADSTODO=5
-fi
 FAILED=0
-if [ "$DATA_FILE_NAME" == "" ]; then
-DATA_FILE_NAME="51Degrees-LiteV4.1.hash"
-fi
+## The data file is the one _51DEGREES_DD_PATH names, or the free Lite ##
+## file when it is not set. ##
+DATA_FILE="${_51DEGREES_DD_PATH:-./cxx/data/device-detection/51Degrees-LiteV4.1.hash}"
+## The evidence records the stress test sends, which the performance ##
+## test build copies here. ##
+EVIDENCE=./tests/performance/build/evidence.yml
 
 ## Set text macros. ##
 RED='\033[0;31m'
@@ -20,8 +19,6 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 PASS="${GREEN}[Pass]${NC}\t"
 FAIL="${RED}[Fail]${NC}\t"
-
-HASH=`2>&1 ./nginx -V | grep -c "FIFTYONEDEGREES_HASH"`
 
 if [ ! -e "./nginx" ]; then
 	printf "nginx is not installed in this directory. Install with \"make install\"\n"
@@ -44,7 +41,7 @@ echo "}" >> build/nginx.conf
 echo "" >> build/nginx.conf
 echo "http {" >> build/nginx.conf
 echo "	## set the datafile ##" >> build/nginx.conf
-echo "	51D_file_path ./cxx/data/device-detection/${DATA_FILE_NAME};" >> build/nginx.conf
+echo "	51D_file_path ${DATA_FILE};" >> build/nginx.conf
 echo "" >> build/nginx.conf
 echo "	server {" >> build/nginx.conf
 echo "		listen 8888;" >> build/nginx.conf
@@ -121,7 +118,7 @@ fi
 ## Test the time per response when none of the User-Agents are stored in the cache. ##
 printf "\n---------------------\n| Testing ApacheBench stress with no cache.\n--------------------\n"
 
-TIME=`./tests/performance/build/ApacheBench-prefix/src/ApacheBench-build/bin/ab -c 10 -i -n $REQUESTS -U ./tests/performance/build/uas.csv 127.0.0.1:8888/ | grep "(mean, across all concurrent requests)" | egrep -o '\<[0-9]{1,2}\.[0-9]{2,5}\>'`
+TIME=`./tests/performance/build/ApacheBench-prefix/src/ApacheBench-build/bin/ab -c 10 -i -n $REQUESTS -E $EVIDENCE 127.0.0.1:8888/ | grep "(mean, across all concurrent requests)" | egrep -o '\<[0-9]{1,2}\.[0-9]{2,5}\>'`
 if [ $TIME ]; then
 	if [ $(echo "$TIME < $LIMIT" | bc -l) -eq 1 ]; then
 		printf "${PASS}Stress test: $TIME ms per detection is within limit of $LIMIT.\n"
@@ -147,7 +144,7 @@ while [ $RELOADCOUNT -lt $RELOADSTODO ]; do
 	printf "Doing nginx reload test $((RELOADCOUNT + 1)) of ${RELOADSTODO}\n"
 	./nginx -s reload
 	RELOADCOUNT=$(($RELOADCOUNT + 1))
-	TIME=`./tests/performance/build/ApacheBench-prefix/src/ApacheBench-build/bin/ab -c 10 -i -n $(echo "$REQUESTS / $RELOADSTODO" | bc -l) -q -U ./tests/performance/build/uas.csv 127.0.0.1:8888/ | grep "mean, across all concurrent requests" | egrep -o '\<[0-9]{1,2}\.[0-9]{2,5}\>'`
+	TIME=`./tests/performance/build/ApacheBench-prefix/src/ApacheBench-build/bin/ab -c 10 -i -n $(echo "$REQUESTS / $RELOADSTODO" | bc -l) -q -E $EVIDENCE 127.0.0.1:8888/ | grep "mean, across all concurrent requests" | egrep -o '\<[0-9]{1,2}\.[0-9]{2,5}\>'`
 	if [ ! "$TIME" ]; then
 		break
 	fi

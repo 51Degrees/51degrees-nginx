@@ -13,13 +13,16 @@ use Test::More;
 
 BEGIN { use FindBin; chdir($FindBin::Bin); }
 
+use lib '../lib';
+use FiftyOneBuild qw(build_path static_build);
+
 ###############################################################################
 
 select STDERR; $| = 1;
 select STDOUT; $| = 1;
 
 my $nginx = $ENV{TEST_NGINX_BINARY};
-my $static = $ENV{TEST_NGINX_STATIC};
+my $static = static_build();
 my $dir = tempdir('nginx-signal-XXXXXXXXXX', TMPDIR => 1, CLEANUP => 1);
 my $signalSeconds = 60;
 
@@ -40,7 +43,7 @@ plan(tests => 2 * scalar(@modules));
 
 foreach my $module (@modules) {
 	my $load = $static ? '' :
-		"load_module $ENV{TEST_MODULE_PATH}modules/$library{$module};";
+		'load_module ' . build_path() . "modules/$library{$module};";
 	my $pidFile = "$dir/$module.pid";
 	my $log = "$dir/$module.log";
 	open my $conf, '>', "$dir/$module.conf"
