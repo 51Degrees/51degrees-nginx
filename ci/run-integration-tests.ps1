@@ -49,8 +49,8 @@ try {
     }
 
     # Test the examples. A static build links a single module, so make
-    # omits load_module and runs only that module's examples.
-    $staticBuild = $BuildMethod -eq 'static' ? 'STATIC_BUILD=1' : $null
+    # runs only that module's examples, and they leave out load_module.
+    $staticBuild = $BuildMethod -eq 'static' ? '_51DEGREES_STATIC_BUILD=1' : $null
     Write-Host "Looking for HASH file(s)..."
     Get-ChildItem -Recurse -Filter 'TAC-HashV41.hash'
 
@@ -59,12 +59,12 @@ try {
     Get-ChildItem "$HashFilePath"
 
     Write-Host "Testing examples"
-    make test-examples $staticBuild DONT_CLEAN_TESTS=1 _51DEGREES_DD_PATH="$HashFilePath" FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Examples.xml
+    make test-examples $staticBuild _51DEGREES_DONT_CLEAN_TESTS=1 _51DEGREES_DD_PATH="$HashFilePath" _51DEGREES_TEST_OUTPUT=$results/${Name}_Examples.xml
 
     # A fresh clone has the free Lite data file, which the Makefile uses when
     # no other file is named, so the examples run on it as well.
     Write-Host "Testing examples on the free Lite data file"
-    make test-examples $staticBuild DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_FORMATTER='--formatter TAP::Formatter::JUnit' FIFTYONEDEGREES_TEST_OUTPUT=$results/${Name}_Examples_Lite.xml
+    make test-examples $staticBuild _51DEGREES_DONT_CLEAN_TESTS=1 _51DEGREES_TEST_OUTPUT=$results/${Name}_Examples_Lite.xml
 } finally {
     Pop-Location
 }

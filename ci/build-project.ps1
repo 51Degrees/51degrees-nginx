@@ -11,11 +11,11 @@ $assets = "$PWD/assets"
 
 Push-Location $PSScriptRoot/..
 try {
-    $build = $BuildMethod -eq 'static' ? 'STATIC_BUILD=1' : $null
+    $build = $BuildMethod -eq 'static' ? '_51DEGREES_STATIC_BUILD=1' : $null
     $target = $MemCheck ? 'mem-check' : 'install'
 
     Write-Host "Building module, target $target $build"
-    make DONT_CLEAN_TESTS=1 FIFTYONEDEGREES_NGINX_VERSION=$NginxVersion "_51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" $build $target
+    make _51DEGREES_DONT_CLEAN_TESTS=1 _51DEGREES_NGINX_VERSION=$NginxVersion "_51DEGREES_DD_PATH=$assets/TAC-HashV41.hash" $build $target
 } finally {
     Pop-Location
 }

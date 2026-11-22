@@ -18,6 +18,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../nginx-tests/lib';
 use lib '../lib';
+use FiftyOneBuild qw(build_path static_build);
 use FiftyOneDataFiles qw(hash_file_path);
 use Test::Nginx;
 use URI::Escape;
@@ -45,12 +46,12 @@ my $t_file = read_example('gettingStarted.conf');
 $t_file =~ s/\/\*\*.+\*\//''/gmse;
 # Replace all variable place holders.
 $t_file =~ s/%%DAEMON_MODE%%/'off'/gmse;
-$t_file =~ s/%%MODULE_PATH%%/$ENV{TEST_MODULE_PATH}/gmse;
+$t_file =~ s/%%MODULE_PATH%%/build_path()/gmse;
 # A static build links the module into the Nginx binary, so omit the
 # load_module directive, which would fail to open a non existent shared
 # object.
 $t_file =~ s/^.*load_module.*
-//mg if $ENV{TEST_NGINX_STATIC};
+//mg if static_build();
 $t_file =~ s/%%FILE_PATH%%/$hashFilePath/gmse;
 $t->write_file_expand('nginx.conf', $t_file);
 

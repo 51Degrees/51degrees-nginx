@@ -61,7 +61,7 @@ stored in this repository. The `cxx` submodule holds the
 link to each file, and a script downloads them into `cxx/data/device-detection`
 and `cxx/data/ip-intelligence`, where the `FILEPATH :=` and `FILEPATH_IPI :=`
 lines in `Makefile` look for them. `make install` runs that script for the
-free file its `API` uses when it is missing (both for `mixed`), `make test`
+free file its `_51DEGREES_API` uses when it is missing (both for `mixed`), `make test`
 for the Lite file and `make test-examples` for both, so a fresh clone needs no
 step of its own. To fetch both before building, run the script yourself.
 
@@ -84,7 +84,7 @@ make install
 ```
 
 The Makefile builds nginx 1.29.3, the version of the first entry in
-`ci/options.json`, which CI builds and tests. `FIFTYONEDEGREES_NGINX_VERSION`
+`ci/options.json`, which CI builds and tests. `_51DEGREES_NGINX_VERSION`
 builds another version. The build downloads the nginx source into `vendor`, builds
 both modules into `build/modules`, puts the nginx program at `./nginx`, writes
 `build/nginx.conf` from `examples/hash/gettingStarted.conf`, and creates the
@@ -111,13 +111,13 @@ Stop nginx.
 ./nginx -s quit
 ```
 
-For IP Intelligence, build again with `API=ipi`, which writes
+For IP Intelligence, build again with `_51DEGREES_API=ipi`, which writes
 `build/nginx.conf` from `examples/ipi/gettingStarted.conf` and creates
 `build/html/ipi`. Stop nginx first, because `make install` starts by deleting
 `build` and `./nginx`.
 
 ```
-make install API=ipi
+make install _51DEGREES_API=ipi
 ./nginx
 curl "localhost:8080/ipi?client_ip=212.58.224.22" -I
 ./nginx -s quit
@@ -125,18 +125,18 @@ curl "localhost:8080/ipi?client_ip=212.58.224.22" -I
 
 The `client_ip` query argument carries the address to look up, because the
 address the request really comes from is the loopback address, which has no
-network to report. `API=mixed` works in the same way for
+network to report. `_51DEGREES_API=mixed` works in the same way for
 `examples/mixed/gettingStarted.conf`, which loads both modules and answers at
 `/mixed`. The request it documents is
 `curl "localhost:8080/mixed?client_ip=212.58.224.22" -I -A "<the User-Agent above>"`.
 
-The other Device Detection examples run in the same way with `EXAMPLE`, which
+The other Device Detection examples run in the same way with `_51DEGREES_EXAMPLE`, which
 names the example in `examples/hash` that `make install` writes as
-`build/nginx.conf`. `make install EXAMPLE=config` writes
+`build/nginx.conf`. `make install _51DEGREES_EXAMPLE=config` writes
 `examples/hash/config.conf` and creates `build/html/config`, which it serves
-at `/config`. `EXAMPLE=matchMetrics` answers at `/metrics`,
-`EXAMPLE=matchQuery` at `/query?user_agent=<a User-Agent>`, and
-`EXAMPLE=responseHeaders/responseHeader` at `/response.html`. Each example's
+at `/config`. `_51DEGREES_EXAMPLE=matchMetrics` answers at `/metrics`,
+`_51DEGREES_EXAMPLE=matchQuery` at `/query?user_agent=<a User-Agent>`, and
+`_51DEGREES_EXAMPLE=responseHeaders/responseHeader` at `/response.html`. Each example's
 comment gives its request.
 
 On macOS, or anywhere Docker runs, the curl example builds the module in a
@@ -151,7 +151,7 @@ docker run -d -p 8080:8080 51d-nginx-curl
 Then send the request that `examples/curl/README.md` gives, which asks for
 `http://127.0.0.1:8080/hash`, or run `examples/curl/curl.sh`, which sends it
 and one more. The image builds `main` from GitHub rather than your checkout,
-unless `--build-arg` names another `BRANCH` or one `COMMIT`, builds nginx
+unless `--build-arg` names another `_51DEGREES_BRANCH` or one `_51DEGREES_COMMIT`, builds nginx
 1.29.3, which CI tests, and loads only the Device Detection module, with
 `examples/curl/nginx.conf`. The workflow
 `.github/workflows/docker-example.yml` builds the image from the commit the
@@ -235,7 +235,7 @@ There are none. The nginx modules work only on-premise, with a data file.
   `cp cxx/src/...`, because the module sources come from the `cxx` submodule.
   A zip download of the repository has no submodules, so clone with Git.
 - **The nginx version.** nginx before 1.21.5 needs PCRE1 (`libpcre3-dev`),
-  which Ubuntu 26.04 does not have, so `FIFTYONEDEGREES_NGINX_VERSION` set to
+  which Ubuntu 26.04 does not have, so `_51DEGREES_NGINX_VERSION` set to
   an older version fails there at nginx's `configure`.
 - **Linux only.** The Makefile uses GNU `sed -i` and links `-latomic`, and the
   README says only Linux is supported. Use WSL on Windows and Docker on macOS.
@@ -296,6 +296,12 @@ The workflows call the shared workflows in
 `ci/update-packages.ps1` rewrites it from the NGINX Plus releases page in the
 nightly package update, so do not edit the versions by hand. The nightly
 submodule update moves `cxx` with a pull request into `rc`.
+
+Every make option, environment variable, build argument and workflow variable
+this repository defines is named `_51DEGREES_<NAME>`, and the README lists
+them under "Names". A script reads a secret from the environment variable of
+its own name where it uses it. `ci/names.Tests.ps1` checks both, and
+`ci/run-unit-tests.ps1` runs it.
 
 The tests use NGINX's own test library, which `make` downloads into
 `tests/nginx-tests` and which fails a test on any line of the error log that

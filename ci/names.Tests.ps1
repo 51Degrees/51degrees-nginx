@@ -90,6 +90,8 @@ Describe 'The names the CI scripts use' {
     }
 
     It 'takes no secret as a parameter' {
+        # A secret is read from the environment where it is used. The script
+        # that fetches the data files takes no parameter at all.
         $found = foreach ($file in $CiScripts) {
             $ast = [System.Management.Automation.Language.Parser]::ParseFile(
                 (Join-Path $Repo $file.Name), [ref]$null, [ref]$null)
@@ -97,7 +99,7 @@ Describe 'The names the CI scripts use' {
                 foreach ($parameter in $ast.ParamBlock.Parameters) {
                     $name = $parameter.Name.VariablePath.UserPath
                     if ($name -match '(Key|Keys|Cert|Token|Password|Secret|Url)$' -or
-                        $name -match '^(DeviceDetection|IpIntelligence)') {
+                        $file.Name -eq 'ci/fetch-assets.ps1') {
                         "$($file.Name): $name"
                     }
                 }

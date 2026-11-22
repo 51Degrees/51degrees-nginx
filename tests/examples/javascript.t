@@ -16,6 +16,7 @@ BEGIN { use FindBin; chdir($FindBin::Bin); }
 
 use lib '../nginx-tests/lib';
 use lib '../lib';
+use FiftyOneBuild qw(build_path static_build);
 use FiftyOneDataFiles qw(hash_file_path);
 use Test::Nginx;
 
@@ -44,12 +45,13 @@ $t_file =~ s/\/\*\*.+\*\//''/gmse;
 # needs and points it at the module and the data file under test.
 $t_file =~ s/^(worker_processes .*)$/daemon off;\n$1\n%%TEST_GLOBALS%%/m;
 $t_file =~ s/^http \{$/http {\n%%TEST_GLOBALS_HTTP%%/m;
-$t_file =~ s/load_module modules\//load_module $ENV{TEST_MODULE_PATH}modules\//;
+my $buildPath = build_path();
+$t_file =~ s/load_module modules\//load_module ${buildPath}modules\//;
 # A static build links the module into the Nginx binary, so omit the
 # load_module directive, which would fail to open a non existent shared
 # object.
 $t_file =~ s/^.*load_module.*
-//mg if $ENV{TEST_NGINX_STATIC};
+//mg if static_build();
 $t_file =~ s/51D_file_path [^;]+;/51D_file_path $hashFilePath;/;
 $t_file =~ s/listen 8888;/listen 127.0.0.1:8080;/;
 $t->write_file_expand('nginx.conf', $t_file);

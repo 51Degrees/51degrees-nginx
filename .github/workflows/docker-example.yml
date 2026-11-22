@@ -22,7 +22,7 @@ permissions:
 
 env:
   # How long the image may take to answer once started, in seconds.
-  START_SECONDS: 120
+  _51DEGREES_START_SECONDS: 120
 
 jobs:
   docker-example:
@@ -35,17 +35,17 @@ jobs:
       - name: Build the image from this run's commit
         working-directory: examples/curl
         env:
-          REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
-          COMMIT: ${{ github.sha }}
-        run: docker build --build-arg "REPOSITORY=$REPOSITORY" --build-arg "COMMIT=$COMMIT" -t 51d-nginx-curl .
+          _51DEGREES_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
+          _51DEGREES_COMMIT: ${{ github.sha }}
+        run: docker build --build-arg _51DEGREES_REPOSITORY --build-arg _51DEGREES_COMMIT -t 51d-nginx-curl .
 
       - name: Check the image holds this run's commit
         env:
-          COMMIT: ${{ github.sha }}
+          _51DEGREES_COMMIT: ${{ github.sha }}
         run: |
           built=$(docker run --rm 51d-nginx-curl git -C /app rev-parse HEAD)
-          echo "The image built $built, and this run checked out $COMMIT"
-          test "$built" = "$COMMIT"
+          echo "The image built $built, and this run checked out $_51DEGREES_COMMIT"
+          test "$built" = "$_51DEGREES_COMMIT"
 
       - name: Report the NGINX version in the image
         run: docker run --rm 51d-nginx-curl /app/nginx -v
@@ -55,14 +55,14 @@ jobs:
 
       - name: Wait for the example to answer
         run: |
-          for i in $(seq 1 "$START_SECONDS"); do
+          for i in $(seq 1 "$_51DEGREES_START_SECONDS"); do
             if curl -s -o /dev/null "http://127.0.0.1:8080/hash"; then
               echo "Answered after $i seconds"
               exit 0
             fi
             sleep 1
           done
-          echo "::error::The example did not answer within $START_SECONDS seconds"
+          echo "::error::The example did not answer within $_51DEGREES_START_SECONDS seconds"
           exit 1
 
       - name: Run curl.sh

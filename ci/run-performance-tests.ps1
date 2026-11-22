@@ -38,6 +38,10 @@ function Write-Results {
 # the results under its own name.
 $ipiOnly = $Name -like '*_IPI'
 
+# The device detection data file, which ci/fetch-assets.ps1 links into
+# cxx/data/device-detection.
+$hashFile = "$repo/cxx/data/device-detection/TAC-HashV41.hash"
+
 $build = New-Item -ItemType directory -Force -Path "$repo/tests/performance/build"
 Push-Location $build
 try {
@@ -47,12 +51,15 @@ try {
     cmake --build .
 
     if (-not $ipiOnly) {
-        # When running the performance tests, set the data file name manually,
-        # then unset once we're done
+        # The device detection performance test reads the data file that
+        # _51DEGREES_DD_PATH names, which is set only while it runs.
         Write-Host "Running device detection performance test"
-        $env:DATA_FILE_NAME="TAC-HashV41.hash"
-        ./runPerf.sh
-        $env:DATA_FILE_NAME=$Null
+        $env:_51DEGREES_DD_PATH = $hashFile
+        try {
+            ./runPerf.sh hash
+        } finally {
+            $env:_51DEGREES_DD_PATH = $null
+        }
 
         Write-Host "Writing device detection performance test results"
         Write-Results $Name
@@ -63,9 +70,7 @@ try {
         # Asn data file that ci/fetch-assets.ps1 copies into
         # cxx/data/ip-intelligence.
         Write-Host "Running IP intelligence performance test"
-        $env:ENGINE="ipi"
-        ./runPerf.sh
-        $env:ENGINE=$Null
+        ./runPerf.sh ipi
 
         Write-Host "Writing IP intelligence performance test results"
         Write-Results $Name
@@ -81,9 +86,12 @@ if (-not $ipiOnly) {
         # Run the stress test script. ApacheBench will already be built from the previous test
         Write-Host "Run stress tests using ApacheBench"
         if (Test-Path -Path "tests/performance/build/ApacheBench-prefix/src/ApacheBench-build/bin/ab") {
-            $env:DATA_FILE_NAME="TAC-HashV41.hash"
-            ./test.sh
-            $env:DATA_FILE_NAME=$Null
+            $env:_51DEGREES_DD_PATH = $hashFile
+            try {
+                ./test.sh
+            } finally {
+                $env:_51DEGREES_DD_PATH = $null
+            }
         } else {
             Write-Error 'The performance test need to be build first.'
         }
