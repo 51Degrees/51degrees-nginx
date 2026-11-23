@@ -3,7 +3,7 @@
 For the general CI Approach, see [common-ci](https://github.com/51degrees/common-ci).
 
 The following secrets are required:
-* `_51DEGREES_ACCESS_TOKEN` - GitHub [access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) for cloning repos, creating PRs, etc.
+* `CI_ACCESS_TOKEN` - an organization secret that only CI uses, so it has no `_51DEGREES_` prefix. GitHub [access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#about-personal-access-tokens) for cloning repos, creating PRs, etc.
     * Example: `github_pat_l0ng_r4nd0m_s7r1ng`
   
 The following secrets are required to run tests:
@@ -15,7 +15,9 @@ The following secrets are required to run the full set of tests against NGINX Pl
 * `NGINX_PLUS_CERT` - NGINX Plus certificate
 * `NGINX_PLUS_JWT_TOKEN` - NGINX Plus license token
 
-The [README](../README.md#names) lists the other names this repository reads. `names.Tests.ps1` checks that every name starts `_51DEGREES_`, except the three NGINX Plus secrets above, which only CI uses, and `run-unit-tests.ps1` runs it.
+The [README](../README.md#names) lists the other names this repository reads. `names.Tests.ps1` checks that every name starts `_51DEGREES_`, except the names other tools define and the three NGINX Plus secrets above, which only CI uses and only the CI scripts may read. `run-unit-tests.ps1` runs it.
+
+common-ci's export step puts a secret in the environment only when its name starts `_51DEGREES_` or common-ci's `steps/ci-secrets.psd1` lists it, so the NGINX Plus secrets reach `setup-environment.ps1` only once that list names them.
 
 ### Differences
 - There are no packages produced by this repository, so the only output from the `Nightly Publish Main` workflow is a new tag and release.

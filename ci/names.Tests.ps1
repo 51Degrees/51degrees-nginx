@@ -2,7 +2,9 @@
 # 51Degrees defines is named _51DEGREES_<NAME>, whether it is a make option, an
 # environment variable, a Docker build argument or a workflow variable. A name
 # another tool defines is used as that tool requires, and those are listed
-# below. The README lists every _51DEGREES_ name.
+# below. The _51DEGREES_ prefix is only for the names a customer uses, so a
+# secret that only CI uses keeps the name the organization holds it by, and
+# only the CI scripts may read it. The README lists every _51DEGREES_ name.
 #
 # Run it from the repository root in a process of its own:
 #   pwsh -NoProfile -Command "Invoke-Pester -Path ci"
@@ -21,11 +23,11 @@ BeforeAll {
 
     # Secrets only CI uses. A customer never sets them, so they take no
     # _51DEGREES_ prefix and are read under the names the organization holds
-    # them by. common-ci exports them to the build.
+    # them by. They reach a job only when common-ci's export step passes them
+    # on. Only the CI script checks accept them.
     $script:CiSecrets = @(
         'NGINX_PLUS_KEY', 'NGINX_PLUS_CERT', 'NGINX_PLUS_JWT_TOKEN'
     )
-    $script:Tools += $script:CiSecrets
 
     function script:Get-RepoFile ([string[]]$Pattern) {
         Push-Location $script:Repo
@@ -89,9 +91,11 @@ Describe 'The names the Makefile takes' {
 }
 
 Describe 'The names the CI scripts use' {
-    It 'reads and sets only _51DEGREES_ environment variables and tools'' own' {
+    It 'reads and sets only _51DEGREES_ environment variables, CI secrets and tools'' own' {
         # A script names a variable as $env:NAME or as the path Env:NAME.
-        Find-OtherName $CiScripts '(?i)\benv:(\w+)' | Should -BeNullOrEmpty
+        Find-OtherName $CiScripts '(?i)\benv:(\w+)' |
+            Where-Object { $CiSecrets -cnotcontains ($_ -split ': ')[-1] } |
+            Should -BeNullOrEmpty
     }
 
     It 'gives make only _51DEGREES_ options' {
@@ -103,6 +107,17 @@ Describe 'The names the CI scripts use' {
         $read = [regex]::Matches($setup, '(?<![\w.])(\w*NGINX_PLUS_\w+)') |
             ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
         $read | Should -Be ($CiSecrets | Sort-Object)
+    }
+
+    It 'stops before installing NGINX Plus when any NGINX Plus secret is missing' {
+        # The names the check loop tests, before the script writes any of
+        # them to a file.
+        $setup = ($CiScripts | Where-Object Name -eq 'ci/setup-environment.ps1').Lines -join "`n"
+        $loop = [regex]::Match($setup, 'foreach\s*\(\s*\$secret\s+in\s+([^)]*)\)')
+        $loop.Success | Should -BeTrue -Because 'the script checks the secrets in one loop'
+        $checked = [regex]::Matches($loop.Groups[1].Value, '''(\w+)''') |
+            ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+        $checked | Should -Be ($CiSecrets | Sort-Object)
     }
 
     It 'takes no secret as a parameter' {
