@@ -1,0 +1,144 @@
+#!/usr/bin/perl
+
+# (C) Sergey Kandaurov
+# (C) Maxim Dounin
+# (C) Nginx, Inc.
+
+# Tests for 51Degrees Hash module.
+
+###############################################################################
+
+use warnings;
+use strict;
+use File::Temp qw/ tempdir /;
+use Test::More;
+use File::Copy;
+
+BEGIN { use FindBin; chdir($FindBin::Bin); }
+
+use lib '../nginx-tests/lib';
+use lib '../lib';
+use FiftyOneBuild qw(build_path static_build);
+use FiftyOneDataFiles qw(hash_file_path);
+use Test::Nginx;
+use URI::Escape;
+
+my $hashFilePath = hash_file_path();
+
+###############################################################################
+
+select STDERR; $| = 1;
+select STDOUT; $| = 1;
+
+sub read_example($) {
+	my ($name) = @_;
+	open my $fh, '<', '../../examples/hash/responseHeaders/' . $name or die "Can't open file $name: $!";
+	read $fh, my $content, -s $fh;
+	close $fh;
+
+	return $content;
+}
+
+my $n = 13;
+my $t_lite = 1;
+
+# The Lite data file version does not contains properties that can be used
+# to test the overrides feature. Please consider to use one that have at least
+# ScreenPixelsWidth and ScreenPixelsWidthJavascript properties
+if (scalar(@ARGV) > 0 && index($ARGV[0], "51Degrees-Lite") == -1) {
+    $n += 0;
+    $t_lite = 0;
+}
+my $t = Test::Nginx->new()->has(qw/http/)->plan($n);
+
+my $t_file = read_example('responseHeader.conf');
+# Remove documentation block
+$t_file =~ s/\/\*\*.+\*\//''/gmse;
+# Replace all variable place holder
+$t_file =~ s/%%DAEMON_MODE%%/'off'/gmse;
+$t_file =~ s/%%MODULE_PATH%%/build_path()/gmse;
+# A static build links the module into the Nginx binary, so omit the
+# load_module directive, which would fail to open a non existent shared
+# object.
+$t_file =~ s/^.*load_module.*
+//mg if static_build();
+$t_file =~ s/%%FILE_PATH%%/$hashFilePath/gmse;
+$t->write_file_expand('nginx.conf', $t_file);
+
+my $t_html_file = read_example('response.html');
+$t->write_file('response.html', $t_html_file);
+
+$t->run();
+
+sub get_with_ua {
+	my ($uri, $ua) = @_;
+	return http(<<EOF);
+GET $uri HTTP/1.1
+Host: localhost
+Connection: close
+User-Agent: $ua
+
+EOF
+}
+
+sub get_with_ch_ua {
+	my ($uri, $chua) = @_;
+	return http(<<EOF);
+GET $uri HTTP/1.1
+Host: localhost
+Connection: close
+sec-ch-ua: $chua
+
+EOF
+}
+
+###############################################################################
+# Constants.
+###############################################################################
+
+my $chromeCHUA = '" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"';
+my $chromeUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.85 Safari/537.36';
+
+###############################################################################
+# Test responseHeader.conf example.
+###############################################################################
+
+# The checks of the page, which run on any data file. Header names are not
+# case sensitive, so neither are the Accept-CH checks. The example says a
+# request with Sec-CH-UA and no User-Agent gives the browser, but neither the
+# Lite nor the paid data file gives one, so those four checks are skipped.
+{
+	my $r = get_with_ch_ua('/response.html', $chromeCHUA);
+	like($r, qr/Platform Name:.*NoMatch/, 'Get Platform Name using Client Hint');
+	SKIP: {
+		skip 'no data file gives a browser for Sec-CH-UA without a User-Agent', 4;
+		like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
+		like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using Client Hint');
+		like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using Client Hint');
+		like($r, qr/Browser Version:.*90/, 'Get Browser Version using Client Hint');
+	}
+
+	$r = get_with_ua('/response.html', $chromeUserAgent);
+	like($r, qr/Accept-CH: SEC-CH-[a-zA-Z\-]+(,SEC-CH-[a-zA-Z\-])*/i, 'Response Header');
+	like($r, qr/Platform Name:.*Linux/, 'Get Platform Name using User Agent');
+	like($r, qr/Browser Vendor:.*Google/, 'Get Browser Vendor using User Agent');
+	like($r, qr/Browser Name:.*Chrome/, 'Get Browser Name using User Agent');
+	like($r, qr/Browser Version:.*90/, 'Get Browser Version using User Agent');
+}
+
+# The hardware properties are only in the Enterprise data file. On the free
+# Lite data file the page links to ask for a copy.
+my $r = get_with_ua('/response.html', $chromeUserAgent);
+if ($t_lite) {
+	like($r, qr/<a href="https:\/\/51degrees\.com\/contact-us\?[^"]*">Contact us<\/a>/, 'Link to ask for the Enterprise data file');
+}
+else {
+	unlike($r, qr/contact-us/, 'No link with the Enterprise data file');
+}
+
+# The page ends with links to find out more, tagged for the example.
+like($r, qr/<h3>Find out more<\/h3>/, 'Find out more on the page');
+like($r, qr/<a href="https:\/\/51degrees\.com\/device-detection\?utm_source=code&utm_medium=example&utm_campaign=51degrees-nginx&utm_content=examples-hash-responseheaders-response&utm_term=device-detection">/,
+	'Find out more link tagged for the example');
+
+###############################################################################

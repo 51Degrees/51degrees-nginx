@@ -1,0 +1,57 @@
+
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$RepoName,
+    [string]$Name = "",
+    [string]$NginxVersion = ""
+)
+
+# Combine the current working directory with the repository name
+$RepoPath = [IO.Path]::Combine($pwd, $RepoName)
+
+$ModuleNames = @("ngx_http_51D_module.so", "ngx_http_51D_ipi_module.so")
+
+# Define the path for downloaded artifacts
+$PackageDir = [IO.Path]::Combine($pwd, "package", "package_$Name")
+
+# Get the local install path
+$ModulesPath = [IO.Path]::Combine($RepoPath, "build", "modules")
+
+# Display the repository path and enter it
+Write-Output "Entering '$RepoPath'"
+Push-Location $RepoPath
+
+try {
+
+    if ($Name -ne "") {
+
+        # Install NGINX without building the module.
+        Write-Output "Install NGINX '$NginxVersion' without 51Degrees module"
+        make install-no-module _51DEGREES_NGINX_VERSION=$NginxVersion
+
+        # Now copy both modules to the installs module directory
+        mkdir $ModulesPath
+        foreach ($ModuleName in $ModuleNames) {
+            $PackagePath = [IO.Path]::Combine($PackageDir, $ModuleName)
+            $InstallPath = [IO.Path]::Combine($ModulesPath, $ModuleName)
+            Write-Output "Copying the 51Degrees module from '$PackagePath' to '$InstallPath'"
+            Copy-Item -Path $PackagePath -Destination $InstallPath
+        }
+
+    }
+    else {
+    
+        Write-Output "Not installing locally, as no NGINX version is specified."
+        
+    }
+}
+finally {
+    
+    # Leave the repository path and display it
+    Write-Output "Leaving '$RepoPath'"
+    Pop-Location
+
+}
+
+# Exit the script with the last exit code
+exit $LASTEXITCODE

@@ -1,0 +1,86 @@
+name: Docker example
+
+# Builds the curl example's Docker image from the commit this run checks out,
+# which for a pull request is the pull request merged into its base, starts it
+# as the example's run.sh does, and checks curl.sh and curl.php. It runs when
+# a pull request changes the example or what the image builds.
+on:
+  pull_request:
+    paths:
+      - 'examples/curl/**'
+      - 'examples/hash/gettingStarted.conf'
+      - '51Degrees_hash_module/**'
+      - '51Degrees_ipi_module/**'
+      - 'module_conf/**'
+      - 'Makefile'
+      - 'cxx'
+      - '.github/workflows/docker-example.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # How long the image may take to answer once started, in seconds.
+  _51DEGREES_START_SECONDS: 120
+
+jobs:
+  docker-example:
+    name: Docker example
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build the image from this run's commit
+        working-directory: examples/curl
+        env:
+          _51DEGREES_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
+          _51DEGREES_COMMIT: ${{ github.sha }}
+        run: docker build --build-arg _51DEGREES_REPOSITORY --build-arg _51DEGREES_COMMIT -t 51d-nginx-curl .
+
+      - name: Check the image holds this run's commit
+        env:
+          _51DEGREES_COMMIT: ${{ github.sha }}
+        run: |
+          built=$(docker run --rm 51d-nginx-curl git -C /app rev-parse HEAD)
+          echo "The image built $built, and this run checked out $_51DEGREES_COMMIT"
+          test "$built" = "$_51DEGREES_COMMIT"
+
+      - name: Report the NGINX version in the image
+        run: docker run --rm 51d-nginx-curl /app/nginx -v
+
+      - name: Start the image as run.sh does
+        run: docker run -d -p 8080:8080 --name curl-example 51d-nginx-curl
+
+      - name: Wait for the example to answer
+        run: |
+          for i in $(seq 1 "$_51DEGREES_START_SECONDS"); do
+            if curl -s -o /dev/null "http://127.0.0.1:8080/hash"; then
+              echo "Answered after $i seconds"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::The example did not answer within $_51DEGREES_START_SECONDS seconds"
+          exit 1
+
+      - name: Run curl.sh
+        working-directory: examples/curl
+        run: |
+          sh ./curl.sh | tee curl-sh.txt
+          test "$(grep -c '^HTTP/1.1 200 OK' curl-sh.txt)" = "$(grep -c '^HTTP/' curl-sh.txt)"
+          grep -qi 'x-is-mobile: True' curl-sh.txt
+          grep -qi 'x-enterprise: .*contact-us' curl-sh.txt
+          grep -qi '^x-find-out-more: ' curl-sh.txt
+
+      - name: Run curl.php
+        working-directory: examples/curl
+        run: |
+          php curl.php | tee curl-php.txt
+          test "$(grep -c '^HTTP/1.1 200 OK' curl-php.txt)" = "$(grep -c '^HTTP/' curl-php.txt)"
+          grep -qi 'x-is-mobile: True' curl-php.txt
+
+      - name: Show the container's log
+        if: always()
+        run: docker logs curl-example 2>&1 | tail -50 || true

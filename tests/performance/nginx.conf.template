@@ -1,0 +1,31 @@
+worker_processes auto;
+
+load_module ${MODULES_DIR}/ngx_http_51D_module.so;
+
+working_directory coredumps/;
+worker_rlimit_core 500M;
+
+events {
+	worker_connections 1024;
+}
+
+http {
+    51D_file_path ${DATA_FILE};
+
+	51D_value_separator ^sep^;
+	51D_allow_unmatched on;
+
+    server {
+        listen       127.0.0.1:3000;
+        server_name  localhost;
+		
+		location /calibrate {
+			# Do nothing
+		}
+
+		location /process {
+			51D_match_all x-ismobile IsMobile;
+			add_header x-ismobile $http_x_ismobile;
+		}
+    }
+}
