@@ -111,9 +111,10 @@ Describe 'The names the CI scripts use' {
     }
 
     It 'stops before installing NGINX Plus when any NGINX Plus secret is missing' {
-        # The check loop is a foreach whose body throws when
-        # GetEnvironmentVariable of the loop variable is empty. There is one,
-        # it names every NGINX Plus secret, and it ends before the first sudo.
+        # The check loop is a foreach whose body throws from an if that tests
+        # GetEnvironmentVariable of the loop variable. There is one, it names
+        # every NGINX Plus secret, and it ends before the first sudo in the
+        # file. The test does not check what the if tests the value for.
         $ast = [System.Management.Automation.Language.Parser]::ParseFile(
             (Join-Path $Repo 'ci/setup-environment.ps1'), [ref]$null, [ref]$null)
         $checks = @($ast.FindAll({
