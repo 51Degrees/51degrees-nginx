@@ -17,7 +17,7 @@ The following secrets are required to run the full set of tests against NGINX Pl
 
 The [README](../README.md#names) lists the other names this repository reads. `names.Tests.ps1` checks that every name starts `_51DEGREES_`, except the names other tools define and the three NGINX Plus secrets above, which only CI uses and only the CI scripts may read. `run-unit-tests.ps1` runs it.
 
-common-ci's export step puts a secret in the environment only when its name starts `_51DEGREES_` or common-ci's `steps/ci-secrets.psd1` lists it, so the NGINX Plus secrets reach `setup-environment.ps1` only once that file names them in a list the build and test jobs take. Those jobs run the export step with no switch, so a name listed only for publishing or signing does not reach them.
+common-ci's export step puts a secret in the environment only when its name starts `_51DEGREES_`, common-ci's own list names it, or this repository's [`ci-secrets.psd1`](ci-secrets.psd1) lists it under `Scripts`. That file lists the three NGINX Plus secrets, so they reach `setup-environment.ps1` in the jobs that build and test, and no job that publishes.
 
 ### Differences
 - There are no packages produced by this repository, so the only output from the `Nightly Publish Main` workflow is a new tag and release.

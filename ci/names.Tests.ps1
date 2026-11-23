@@ -151,6 +151,15 @@ Describe 'The names the CI scripts use' {
         $checks[0].Extent.EndOffset | Should -BeLessThan $sudo.Extent.StartOffset
     }
 
+    It 'lists in ci/ci-secrets.psd1 exactly the CI secrets the scripts read' {
+        # common-ci exports to this repository's build and test jobs the
+        # secrets that file lists under Scripts, and no others.
+        $list = Join-Path $Repo 'ci/ci-secrets.psd1'
+        Test-Path -LiteralPath $list | Should -BeTrue
+        @((Import-PowerShellDataFile -LiteralPath $list).Scripts | Sort-Object) |
+            Should -Be @($CiSecrets | Sort-Object)
+    }
+
     It 'takes no secret as a parameter' {
         # A secret is read from the environment where it is used. The script
         # that fetches the data files takes no parameter at all.
