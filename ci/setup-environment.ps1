@@ -59,7 +59,7 @@ finally {
 if ($FullTests -eq $True) {
     # The key, the certificate, and the license token of the NGINX Plus
     # subscription come from the environment.
-    foreach ($secret in '_51DEGREES_NGINX_PLUS_KEY', '_51DEGREES_NGINX_PLUS_CERT', '_51DEGREES_NGINX_PLUS_JWT_TOKEN') {
+    foreach ($secret in 'NGINX_PLUS_KEY', 'NGINX_PLUS_CERT', 'NGINX_PLUS_JWT_TOKEN') {
         if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($secret))) {
             throw "$secret is not set, so NGINX Plus cannot be installed."
         }
@@ -74,9 +74,9 @@ if ($FullTests -eq $True) {
 
 # Write the key and certificate files for NGINX Plus so it can be installed.
     Write-Output "Copy NGINX Plus credentials to the created directory"
-    $env:_51DEGREES_NGINX_PLUS_KEY | sudo cp /dev/stdin /etc/ssl/nginx/nginx-repo.key
-    $env:_51DEGREES_NGINX_PLUS_CERT | sudo cp /dev/stdin /etc/ssl/nginx/nginx-repo.crt
-    $env:_51DEGREES_NGINX_PLUS_JWT_TOKEN | sudo cp /dev/stdin /etc/nginx/license.jwt
+    $env:NGINX_PLUS_KEY | sudo cp /dev/stdin /etc/ssl/nginx/nginx-repo.key
+    $env:NGINX_PLUS_CERT | sudo cp /dev/stdin /etc/ssl/nginx/nginx-repo.crt
+    $env:NGINX_PLUS_JWT_TOKEN | sudo cp /dev/stdin /etc/nginx/license.jwt
 
     Write-Output "Setting permissions for the certificates"
     sudo chown -R root:root /etc/ssl/nginx

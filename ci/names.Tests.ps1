@@ -19,6 +19,14 @@ BeforeAll {
         'PATH', 'PWD', 'BASH_SOURCE', 'GITHUB_TOKEN'
     )
 
+    # Secrets only CI uses. A customer never sets them, so they take no
+    # _51DEGREES_ prefix and are read under the names the organization holds
+    # them by. common-ci exports them to the build.
+    $script:CiSecrets = @(
+        'NGINX_PLUS_KEY', 'NGINX_PLUS_CERT', 'NGINX_PLUS_JWT_TOKEN'
+    )
+    $script:Tools += $script:CiSecrets
+
     function script:Get-RepoFile ([string[]]$Pattern) {
         Push-Location $script:Repo
         try {
@@ -88,6 +96,13 @@ Describe 'The names the CI scripts use' {
 
     It 'gives make only _51DEGREES_ options' {
         Find-OtherName $CiScripts '(?<![\w$:.-])([A-Z_][A-Z0-9_]+)=(?!=)' | Should -BeNullOrEmpty
+    }
+
+    It 'reads the NGINX Plus secrets under the organization''s names' {
+        $setup = ($CiScripts | Where-Object Name -eq 'ci/setup-environment.ps1').Lines -join "`n"
+        $read = [regex]::Matches($setup, '(?<![\w.])(\w*NGINX_PLUS_\w+)') |
+            ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+        $read | Should -Be ($CiSecrets | Sort-Object)
     }
 
     It 'takes no secret as a parameter' {
