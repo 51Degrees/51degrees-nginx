@@ -304,7 +304,7 @@ its own name where it uses it. The `_51DEGREES_` prefix is only for the names
 a customer uses, so a secret that only CI uses, such as the NGINX Plus
 credentials `NGINX_PLUS_KEY`, `NGINX_PLUS_CERT` and `NGINX_PLUS_JWT_TOKEN`,
 keeps the name the organization holds it by, and only the CI scripts read it.
-`ci/names.Tests.ps1` checks both, and
+`ci/names.Tests.ps1` checks these rules, and
 `ci/run-unit-tests.ps1` runs it.
 
 The tests use NGINX's own test library, which `make` downloads into

@@ -24,7 +24,8 @@ BeforeAll {
     # Secrets only CI uses. A customer never sets them, so they take no
     # _51DEGREES_ prefix and are read under the names the organization holds
     # them by. They reach a job only when common-ci's export step passes them
-    # on. Only the CI script checks accept them.
+    # on. Only the check of the environment variables the CI scripts read
+    # accepts them.
     $script:CiSecrets = @(
         'NGINX_PLUS_KEY', 'NGINX_PLUS_CERT', 'NGINX_PLUS_JWT_TOKEN'
     )
@@ -110,14 +111,43 @@ Describe 'The names the CI scripts use' {
     }
 
     It 'stops before installing NGINX Plus when any NGINX Plus secret is missing' {
-        # The names the check loop tests, before the script writes any of
-        # them to a file.
-        $setup = ($CiScripts | Where-Object Name -eq 'ci/setup-environment.ps1').Lines -join "`n"
-        $loop = [regex]::Match($setup, 'foreach\s*\(\s*\$secret\s+in\s+([^)]*)\)')
-        $loop.Success | Should -BeTrue -Because 'the script checks the secrets in one loop'
-        $checked = [regex]::Matches($loop.Groups[1].Value, '''(\w+)''') |
-            ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+        # The check loop is a foreach whose body throws when
+        # GetEnvironmentVariable of the loop variable is empty. There is one,
+        # it names every NGINX Plus secret, and it ends before the first sudo.
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $Repo 'ci/setup-environment.ps1'), [ref]$null, [ref]$null)
+        $checks = @($ast.FindAll({
+            param($node)
+            if ($node -isnot [System.Management.Automation.Language.ForEachStatementAst]) { return $false }
+            $variable = $node.Variable.VariablePath.UserPath
+            foreach ($if in $node.Body.FindAll({ param($n) $n -is [System.Management.Automation.Language.IfStatementAst] }, $true)) {
+                foreach ($clause in $if.Clauses) {
+                    $reads = $clause.Item1.FindAll({
+                        param($n)
+                        $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+                        $n.Member.Value -eq 'GetEnvironmentVariable' -and
+                        @($n.Arguments | Where-Object {
+                            $_ -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                            $_.VariablePath.UserPath -eq $variable
+                        }).Count -gt 0
+                    }, $true)
+                    $throws = $clause.Item2.Find({ param($n) $n -is [System.Management.Automation.Language.ThrowStatementAst] }, $true)
+                    if (@($reads).Count -gt 0 -and $null -ne $throws) { return $true }
+                }
+            }
+            return $false
+        }, $true))
+        $checks.Count | Should -Be 1 -Because 'the script checks the NGINX Plus secrets in one loop that throws'
+        $checked = $checks[0].Condition.FindAll({
+            param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst]
+        }, $true) | ForEach-Object Value | Sort-Object -Unique
         $checked | Should -Be ($CiSecrets | Sort-Object)
+        $sudo = $ast.FindAll({
+            param($n)
+            $n -is [System.Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'sudo'
+        }, $true) | Sort-Object { $_.Extent.StartOffset } | Select-Object -First 1
+        $null -ne $sudo | Should -BeTrue -Because 'the script installs NGINX Plus with sudo'
+        $checks[0].Extent.EndOffset | Should -BeLessThan $sudo.Extent.StartOffset
     }
 
     It 'takes no secret as a parameter' {
