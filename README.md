@@ -342,7 +342,7 @@ The Docker example in `examples/curl` takes the build arguments `_51DEGREES_REPO
 
 The browser test of the JavaScript example takes the address of the page in `_51DEGREES_EXAMPLE_URL`, which the shared browser test suite reads.
 
-CI reads the secrets `_51DEGREES_LICENSE_KEY`, `_51DEGREES_NGINX_PLUS_KEY`, `_51DEGREES_NGINX_PLUS_CERT`, and `_51DEGREES_NGINX_PLUS_JWT_TOKEN`, which [ci/README.md](ci/README.md) describes.
+CI reads the secrets `_51DEGREES_LICENSE_KEY`, `NGINX_PLUS_KEY`, `NGINX_PLUS_CERT`, and `NGINX_PLUS_JWT_TOKEN`, which [ci/README.md](ci/README.md) describes.
 
 ## Test
 All tests are allocated in the `tests` folder.

@@ -11,11 +11,11 @@ The following secrets are required to run tests:
     * Example: `V3RYL0NGR4ND0M57R1NG`
 
 The following secrets are required to run the full set of tests against NGINX Plus. `setup-environment.ps1` reads each from the environment variable of the same name:
-* `_51DEGREES_NGINX_PLUS_KEY` - Signing key used for installing NGINX Plus
-* `_51DEGREES_NGINX_PLUS_CERT` - NGINX Plus certificate
-* `_51DEGREES_NGINX_PLUS_JWT_TOKEN` - NGINX Plus license token
+* `NGINX_PLUS_KEY` - Signing key used for installing NGINX Plus
+* `NGINX_PLUS_CERT` - NGINX Plus certificate
+* `NGINX_PLUS_JWT_TOKEN` - NGINX Plus license token
 
-The [README](../README.md#names) lists the other names this repository reads. `names.Tests.ps1` checks that every name starts `_51DEGREES_`, and `run-unit-tests.ps1` runs it.
+The [README](../README.md#names) lists the other names this repository reads. `names.Tests.ps1` checks that every name starts `_51DEGREES_`, except the three NGINX Plus secrets above, which only CI uses, and `run-unit-tests.ps1` runs it.
 
 ### Differences
 - There are no packages produced by this repository, so the only output from the `Nightly Publish Main` workflow is a new tag and release.
@@ -44,6 +44,6 @@ every entry.
 
 In addition to the [common prerequisites](https://github.com/51Degrees/common-ci#prerequisites), the following environment variables are required:
 - `_51DEGREES_LICENSE_KEY` - License key to download a data file for testing
-- `_51DEGREES_NGINX_PLUS_KEY` - Signing key used for installing NGINX Plus
-- `_51DEGREES_NGINX_PLUS_CERT` - NGINX Plus certificate
-- `_51DEGREES_NGINX_PLUS_JWT_TOKEN` - NGINX Plus license token
+- `NGINX_PLUS_KEY` - Signing key used for installing NGINX Plus
+- `NGINX_PLUS_CERT` - NGINX Plus certificate
+- `NGINX_PLUS_JWT_TOKEN` - NGINX Plus license token
