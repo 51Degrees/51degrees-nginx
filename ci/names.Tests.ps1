@@ -82,7 +82,8 @@ Describe 'The names the Makefile takes' {
 
 Describe 'The names the CI scripts use' {
     It 'reads and sets only _51DEGREES_ environment variables and tools'' own' {
-        Find-OtherName $CiScripts '(?i)\$env:(\w+)' | Should -BeNullOrEmpty
+        # A script names a variable as $env:NAME or as the path Env:NAME.
+        Find-OtherName $CiScripts '(?i)\benv:(\w+)' | Should -BeNullOrEmpty
     }
 
     It 'gives make only _51DEGREES_ options' {
@@ -188,6 +189,23 @@ Describe 'The evidence the tests send' {
         $files = Get-RepoFile 'Makefile', '*.sh', '*.ps1', '*.md', '*.t', '*.txt', '*.yml', '*.template' |
             Where-Object { $_.Name -notlike '*.Tests.ps1' }
         Find-OtherName $files '(\S*\.csv)\b' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'The commands and tools in the README' {
+    BeforeAll {
+        $script:Readme = Get-RepoFile 'README.md'
+    }
+
+    It 'sets only _51DEGREES_ names in front of a command' {
+        Find-OtherName $Readme '^\s*([A-Za-z_]\w*)=\S+\s+\S' | Should -BeNullOrEmpty
+    }
+
+    It 'asks for Node.js only when the repository has a Node.js test' {
+        $packages = @(Get-RepoFile 'package.json', '*/package.json')
+        if ($packages.Count -eq 0) {
+            @($Readme.Lines -match '^\s*-\s.*\b(node|jest|npm)\b') | Should -BeNullOrEmpty
+        }
     }
 }
 

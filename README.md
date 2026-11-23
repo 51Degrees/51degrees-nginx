@@ -340,6 +340,8 @@ Every setting this repository reads is named `_51DEGREES_<NAME>`. Each one can b
 
 The Docker example in `examples/curl` takes the build arguments `_51DEGREES_REPOSITORY`, `_51DEGREES_BRANCH`, `_51DEGREES_COMMIT`, and `_51DEGREES_NGINX_VERSION`, which name what the image builds. Its workflow allows `_51DEGREES_START_SECONDS` for the image to answer.
 
+The browser test of the JavaScript example takes the address of the page in `_51DEGREES_EXAMPLE_URL`, which the shared browser test suite reads.
+
 CI reads the secrets `_51DEGREES_LICENSE_KEY`, `_51DEGREES_NGINX_PLUS_KEY`, `_51DEGREES_NGINX_PLUS_CERT`, and `_51DEGREES_NGINX_PLUS_JWT_TOKEN`, which [ci/README.md](ci/README.md) describes.
 
 ## Test
@@ -348,7 +350,7 @@ All tests are allocated in the `tests` folder.
 To be able to test the 51Degrees module the following libraries are required.
 - Perl 5 and prove Test::Harness
 - CMake 3.24 or above
-- node and jest
+- .NET 10 SDK, Chrome and Firefox, for the browser test of the JavaScript example
 - curl
 - grep
 
@@ -456,22 +458,15 @@ make test-examples _51DEGREES_DD_PATH=[Path to obtained data file] _51DEGREES_IP
 ```
 
 ### JavaScript and overrides example test
-The JavaScript and overrides example test is designed to be run separately with Selenium using Node.js. The test is located in `tests/examples/jsExample` directory. To run the test, follow the below steps:
-- Make sure to have Chrome, Firefox and Edge installed.
-- Download and install their drivers.
-- Ensure the browser versions and the drivers versions are aligned.
-- Navigate to the directory `tests/examples/jsExample` and run:
+The JavaScript and overrides example is tested in Chrome and Firefox by the `ModuleJavaScript` tests of the shared browser test suite, [selenium-api-tests](https://github.com/51Degrees/selenium-api-tests), which finds and starts the browsers and their drivers. `ci/run-integration-tests.ps1` checks the suite out beside this repository and runs it as below. The data file needs the ScreenPixelsWidthJavascript property, which the free Lite data file does not have.
+- Start NGINX with `javascript.conf` as described in the file itself, with `index.html` copied to `build/html/jsExample/index.html` so that NGINX serves the page as well.
+- Check out the suite beside this repository and run:
 ```
-npm install
+git clone https://github.com/51Degrees/selenium-api-tests.git ../selenium-api-tests
+_51DEGREES_EXAMPLE_URL=http://localhost:8888/jsExample/index.html dotnet test ../selenium-api-tests --filter TestCategory=ModuleJavaScript
 ```
-  - This will installed all required package including the Selenium web driver.
-  - Start NGINX with the `javascript.conf` as described in the file itself.
-  - Run the test
-```
-npm test
-```
-  - Result is output to a file called `cdn_test_results.xml`.
-  - Stop the NGINX.
+  - The tests need the .NET 10 SDK, Chrome and Firefox. A driver the machine provides is used, and Selenium Manager fetches one otherwise.
+  - Stop NGINX.
 
 ## Re-certify 51Degrees module
 When a new release is made to the 51Degrees module, module maintainer will need to re-certify it the NGINX Plus for target releases.
