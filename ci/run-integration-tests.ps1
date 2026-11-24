@@ -95,8 +95,13 @@ try {
     Write-Host "Checking ($HashFilePath)..."
     Get-ChildItem "$HashFilePath"
 
+    # The IP intelligence examples read the free Lite file that
+    # ci/fetch-assets.ps1 puts in the assets folder.
+    $IpiFilePath = (Get-Item "$PSScriptRoot/../../assets/51Degrees-LiteIpiV41.ipi").FullName
+    Write-Host "Checking ($IpiFilePath)..."
+
     Write-Host "Testing examples"
-    make test-examples $staticBuild _51DEGREES_DONT_CLEAN_TESTS=1 _51DEGREES_DD_PATH="$HashFilePath" _51DEGREES_TEST_OUTPUT=$results/${Name}_Examples.xml
+    make test-examples $staticBuild _51DEGREES_DONT_CLEAN_TESTS=1 _51DEGREES_DD_PATH="$HashFilePath" _51DEGREES_IPI_PATH="$IpiFilePath" _51DEGREES_TEST_OUTPUT=$results/${Name}_Examples.xml
 
     # A fresh clone has the free Lite data file, which the Makefile uses when
     # no other file is named, so the examples run on it as well.
