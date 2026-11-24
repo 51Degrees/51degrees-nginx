@@ -1720,10 +1720,6 @@ get_evidence_from_query_string_base(ngx_http_request_t *r, ngx_str_t *variableNa
  */
 static ngx_str_t *
 get_evidence_from_query_string(ngx_http_request_t *r, ngx_str_t *variableName) {
-	u_char *src, *dst;
-	ngx_uint_t variableNameHash;
-	ngx_variable_value_t *variable;
-	ngx_str_t *evidence;
 	ngx_str_t queryVarName;
 
 	// Check if the variable contains the prefix 'arg_' required for query
@@ -2715,9 +2711,6 @@ static ngx_int_t addRespHeader(
  */
 static ngx_int_t
 ngx_http_51D_header_filter(ngx_http_request_t *r) {
-	ngx_int_t rc;
-	ngx_buf_t *b;
-	ngx_chain_t out;
 	ngx_http_51D_loc_conf_t *fdlcf;
 	ngx_http_51D_srv_conf_t *fdscf;
 	ngx_http_51D_main_conf_t *fdmcf;
@@ -2844,7 +2837,6 @@ ngx_http_51D_body_filter(ngx_http_request_t *r, ngx_chain_t *in) {
 	ngx_http_51D_loc_conf_t *fdlcf;
 	ngx_http_51D_main_conf_t *fdmcf;
 	ngx_http_51D_match_conf_t *matchConf;
-	ngx_str_t *userAgent;
 	size_t contentLength = 0;
 
 	if (ngx_http_51D_shm_resource_manager == NULL ||
@@ -3051,7 +3043,6 @@ ngx_http_51D_set_header(
 	ngx_str_t *value,
 	ngx_http_51D_main_conf_t *fdmcf)
 {
-	char *tok, *tokPos = NULL;
 	int propertiesCount, charPos;
 	char *propertiesString;
 
@@ -3102,7 +3093,6 @@ ngx_http_51D_set_body(
 	ngx_str_t *value,
 	ngx_http_51D_main_conf_t *fdmcf)
 {
-	char *tok, *tokPos = NULL;
 	int propertiesCount, charPos;
 	char *propertiesString;
 
@@ -3314,9 +3304,7 @@ ngx_conf_t *cf, ngx_command_t *cmd, ngx_http_51D_match_conf_t *matchConf)
 static char *ngx_http_51D_set_conf_resp(
 ngx_conf_t *cf, ngx_command_t *cmd, ngx_http_51D_match_conf_t *matchConf)
 {
-	ngx_http_51D_data_to_set *body;
 	ngx_str_t *value;
-	char *status;
 
 	// Get the arguments from the config.
 	value = cf->args->elts;
