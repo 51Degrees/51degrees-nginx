@@ -42,6 +42,10 @@ $ipiOnly = $Name -like '*_IPI'
 # cxx/data/device-detection.
 $hashFile = "$repo/cxx/data/device-detection/TAC-HashV41.hash"
 
+# The IP intelligence data file, the free Asn file that ci/fetch-assets.ps1
+# copies into cxx/data/ip-intelligence.
+$asnFile = "$repo/cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi"
+
 $build = New-Item -ItemType directory -Force -Path "$repo/tests/performance/build"
 Push-Location $build
 try {
@@ -66,11 +70,15 @@ try {
     }
 
     if ($ipiOnly) {
-        # Run the performance test for the IP intelligence module using the
-        # Asn data file that ci/fetch-assets.ps1 copies into
-        # cxx/data/ip-intelligence.
+        # The IP intelligence performance test reads the data file that
+        # _51DEGREES_IPI_PATH names, which is set only while it runs.
         Write-Host "Running IP intelligence performance test"
-        ./runPerf.sh ipi
+        $env:_51DEGREES_IPI_PATH = $asnFile
+        try {
+            ./runPerf.sh ipi
+        } finally {
+            $env:_51DEGREES_IPI_PATH = $null
+        }
 
         Write-Host "Writing IP intelligence performance test results"
         Write-Results $Name
