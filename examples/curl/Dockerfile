@@ -17,8 +17,14 @@ RUN git init -q . && git remote add origin "${_51DEGREES_REPOSITORY}" \
 	&& git fetch -q origin "${_51DEGREES_COMMIT:-$_51DEGREES_BRANCH}" && git checkout -q FETCH_HEAD \
 	&& git submodule update --init --recursive
 
-#the free Lite data file, downloaded by the data repository's script
-RUN sh cxx/data/get-data-files.sh -s examples-51degrees-nginx 51Degrees-LiteV4.1.hash
+#the free Lite data file, downloaded by the data repository's script, which
+#keeps a file that is already there. A copy of 51Degrees-LiteV4.1.hash put
+#beside this Dockerfile is used in place of the download. It is read through
+#a mount, so the image holds the file once.
+RUN --mount=type=bind,target=/tmp/context \
+	if [ -f /tmp/context/51Degrees-LiteV4.1.hash ]; then \
+		cp /tmp/context/51Degrees-LiteV4.1.hash cxx/data/device-detection/; fi \
+	&& sh cxx/data/get-data-files.sh -s examples-51degrees-nginx 51Degrees-LiteV4.1.hash
 
 #make reads the NGINX version from _51DEGREES_NGINX_VERSION
 RUN make install

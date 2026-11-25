@@ -32,12 +32,35 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # The data file the image loads comes from the fetch-assets action,
+      # which restores it from the asset cache or else fetches it and caches
+      # it, so the image build never downloads it.
+      - name: Fetch the data file the image loads
+        uses: 51Degrees/common-ci/actions/fetch-assets@main
+        with:
+          assets: 51Degrees-LiteV4.1.hash
+          cache: true
+
+      # The Dockerfile uses a copy of the data file it finds beside it.
+      - name: Put the data file in the build context
+        run: |
+          if [ ! -f assets/51Degrees-LiteV4.1.hash ]; then
+            echo "::error::fetch-assets left no assets/51Degrees-LiteV4.1.hash for the image"
+            exit 1
+          fi
+          cp assets/51Degrees-LiteV4.1.hash examples/curl/
+
+      # The Distributor's name points at the build's own address, so a build
+      # that tried to download a data file would fail rather than download it.
       - name: Build the image from this run's commit
         working-directory: examples/curl
         env:
           _51DEGREES_REPOSITORY: ${{ github.server_url }}/${{ github.repository }}
           _51DEGREES_COMMIT: ${{ github.sha }}
-        run: docker build --build-arg _51DEGREES_REPOSITORY --build-arg _51DEGREES_COMMIT -t 51d-nginx-curl .
+        run: >-
+          docker build --add-host distributor.51degrees.com:127.0.0.1
+          --build-arg _51DEGREES_REPOSITORY --build-arg _51DEGREES_COMMIT
+          -t 51d-nginx-curl .
 
       - name: Check the image holds this run's commit
         env:
