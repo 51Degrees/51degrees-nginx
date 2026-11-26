@@ -13,6 +13,11 @@ docker build -t 51d-nginx-curl .
 docker run -d -p 8080:8080 51d-nginx-curl
 ```
 
+The build downloads the free Lite data file, `51Degrees-LiteV4.1.hash`. If you
+already have a copy, put it beside the Dockerfile and the build uses it in place
+of a download. The Dockerfile needs BuildKit, which `docker build` uses by
+default since Docker 23.
+
 ## Run
 
 Use the `curl.sh` script or just plain curl command (the evidence provided may be arbitrary):
