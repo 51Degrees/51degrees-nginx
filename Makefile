@@ -24,7 +24,10 @@ $(eval $(_51DEGREES_API):;@:)
 
 ifneq (test,$(firstword $(MAKECMDGOALS)))
 	_51DEGREES_API := hash
-	ARGS := -std=gnu11 -Wall -Wno-unused-variable -Wno-missing-braces -Wno-type-limits -Wno-unused-function -Wno-missing-field-initializers -Wno-unused-but-set-variable
+	# NGINX's configure adds -Wall, -Wextra and -Werror for gcc and clang, so
+	# a warning in the modules or the cxx sources they copy stops the build. No
+	# warning is switched off here.
+	ARGS := -std=gnu11 -Wall
 endif
 
 
@@ -126,7 +129,7 @@ clean:
 		rm -f nginx; \
 	fi
 	if [ -f "vendor/nginx-$(_51DEGREES_NGINX_VERSION)/Makefile" ]; then \
-		cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && make clean; \
+		cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && $(MAKE) clean; \
 	fi
 	if [ "$(CLEANTESTS)" -eq "1" ]; then \
 		if [ -d "tests/nginx-tests" ]; then \
@@ -232,7 +235,7 @@ endif
 
 install: $(INSTALL_DATA) configure
 	@[ -f "examples/$(_51DEGREES_API)/$(_51DEGREES_EXAMPLE).conf" ] || { echo "There is no example examples/$(_51DEGREES_API)/$(_51DEGREES_EXAMPLE).conf"; exit 1; }
-	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && make install
+	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && $(MAKE) install
 	sed "/\/\*\*/,/\*\//d" examples/$(_51DEGREES_API)/$(_51DEGREES_EXAMPLE).conf > build/nginx.conf
 	sed -i "s!%%DAEMON_MODE%%!on!g" build/nginx.conf
 	sed -i "s!%%MODULE_PATH%%!!g" build/nginx.conf
@@ -255,10 +258,10 @@ endif
 	esac
 
 install-no-module: configure-no-module	
-	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && make install
+	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && $(MAKE) install
 
 module: configure
-	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && make modules
+	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && $(MAKE) modules
 	if [ ! -d "build/modules" ]; then mkdir -p build/modules; fi
 	cp $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION)/objs/*.so build/modules
 
