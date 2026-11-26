@@ -24,10 +24,15 @@ $(eval $(_51DEGREES_API):;@:)
 
 ifneq (test,$(firstword $(MAKECMDGOALS)))
 	_51DEGREES_API := hash
-	# NGINX's configure adds -Wall, -Wextra and -Werror for gcc and clang, so
-	# a warning in the modules or the cxx sources they copy stops the build. No
-	# warning is switched off here.
+	# NGINX's configure adds -Wall, -Wextra and -Werror for gcc and clang. No
+	# warning is switched off here. A warning in the modules or the cxx sources
+	# they copy stops the build only when _51DEGREES_WARNINGS_AS_ERRORS is
+	# "true", as it is in 51Degrees' own builds. Otherwise -Wno-error keeps it a
+	# warning, so a newer compiler on a customer's machine cannot stop the build.
 	ARGS := -std=gnu11 -Wall
+ifneq (true,$(shell echo '$(_51DEGREES_WARNINGS_AS_ERRORS)' | tr A-Z a-z))
+	ARGS += -Wno-error
+endif
 endif
 
 

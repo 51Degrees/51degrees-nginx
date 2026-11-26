@@ -337,6 +337,7 @@ Every setting this repository reads is named `_51DEGREES_<NAME>`. Each one can b
 |`_51DEGREES_STATIC_BUILD` *|When set, links one module into the NGINX binary in place of building modules to load.|
 |`_51DEGREES_TEST_OUTPUT` *|The file a test run writes a JUnit report to. See [Test options](#test-options).|
 |`_51DEGREES_DONT_CLEAN_TESTS` *|When set, `make clean` keeps the NGINX tests downloaded into `tests/nginx-tests`.|
+|`_51DEGREES_WARNINGS_AS_ERRORS` *|When `true`, in any case, a warning stops the build, as in 51Degrees' own builds. Otherwise the build shows its warnings and goes on.|
 
 The Docker example in `examples/curl` takes the build arguments `_51DEGREES_REPOSITORY`, `_51DEGREES_BRANCH`, `_51DEGREES_COMMIT`, and `_51DEGREES_NGINX_VERSION`, which name what the image builds. Its workflow allows `_51DEGREES_START_SECONDS` for the image to answer.
 
