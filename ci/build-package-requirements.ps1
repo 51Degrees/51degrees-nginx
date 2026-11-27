@@ -5,6 +5,12 @@ param(
     [string]$NginxVersion
 )
 
+# A warning stops 51Degrees' own builds. Until the shared workflows set this
+# for every job, the build scripts set it.
+if (!$env:_51DEGREES_WARNINGS_AS_ERRORS) {
+    $env:_51DEGREES_WARNINGS_AS_ERRORS = 'true'
+}
+
 $ModuleNames = @("ngx_http_51D_module.so", "ngx_http_51D_ipi_module.so")
 $RepoPath = [IO.Path]::Combine($pwd, $RepoName)
 $OutputDir = [IO.Path]::Combine($pwd, "package-files")
@@ -14,7 +20,7 @@ Push-Location $RepoPath
 
 try {
 
-    make install FIFTYONEDEGREES_NGINX_VERSION=$NginxVersion
+    make install _51DEGREES_NGINX_VERSION=$NginxVersion
         
     # Create a directory for binary files from which they will be uploaded
     # as artifacts.

@@ -6,3 +6,4 @@ nginx
 51Degrees_ipi_module/src/
 51Degrees_ipi_module/config
 tests/nginx-tests/
+examples/curl/51Degrees-LiteV4.1.hash

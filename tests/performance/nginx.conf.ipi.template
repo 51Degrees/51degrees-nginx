@@ -10,7 +10,7 @@ events {
 }
 
 http {
-    51D_file_path_ipi ${DATA_FILE_DIR_IPI}/51Degrees-IPIV4AsnIpiV41.ipi;
+    51D_file_path_ipi ${DATA_FILE_IPI};
 
     server {
         listen       127.0.0.1:3000;
@@ -21,8 +21,8 @@ http {
 		}
 
 		location /process {
-			# The benchmark harness rotates through a file of IP addresses
-			# using the User-Agent header, so the match is performed on the
+			# The benchmark sends an IP address from the evidence file with
+			# each request in the User-Agent header, so the match is performed on the
 			# value of that header rather than the client IP address which
 			# would be the same for every request.
 			51D_match_ipi x-asn AsnName $http_user_agent;

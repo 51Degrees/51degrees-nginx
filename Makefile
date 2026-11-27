@@ -1,95 +1,121 @@
-ifndef FIFTYONEDEGREES_NGINX_VERSION
-	VERSION := 1.20.0
-else
-	VERSION := $(FIFTYONEDEGREES_NGINX_VERSION)
+# The NGINX version to build, the first in ci/options.json, unless
+# _51DEGREES_NGINX_VERSION names another in the environment or on the make
+# command line.
+ifndef _51DEGREES_NGINX_VERSION
+	_51DEGREES_NGINX_VERSION := 1.29.3
 endif
 
-ifndef DONT_CLEAN_TESTS
+ifndef _51DEGREES_DONT_CLEAN_TESTS
 	CLEANTESTS := 1
 else
 	CLEANTESTS := 0
 endif
 
-TESTS := tests/51degrees.t
+TESTS := tests/51degrees.t tests/51degrees_own_match.t
+
+# A test run writes a JUnit report to the file _51DEGREES_TEST_OUTPUT names.
+# Without it, the results go to the terminal.
+ifdef _51DEGREES_TEST_OUTPUT
+	FORMATTER := --formatter TAP::Formatter::JUnit
+endif
 
 
-$(eval $(API):;@:)
+$(eval $(_51DEGREES_API):;@:)
 
 ifneq (test,$(firstword $(MAKECMDGOALS)))
-	API := hash
-	ARGS := -std=gnu11 -Wall -Wno-unused-variable -Wno-missing-braces -Wno-type-limits -Wno-unused-function -Wno-missing-field-initializers -Wno-unused-but-set-variable
+	_51DEGREES_API := hash
+	# NGINX's configure adds -Wall, -Wextra and -Werror for gcc and clang. No
+	# warning is switched off here. A warning in the modules or the cxx sources
+	# they copy stops the build only when _51DEGREES_WARNINGS_AS_ERRORS is
+	# "true", as it is in 51Degrees' own builds. Otherwise -Wno-error keeps it a
+	# warning, so a newer compiler on a customer's machine cannot stop the build.
+	ARGS := -std=gnu11 -Wall
+ifneq (true,$(shell echo '$(_51DEGREES_WARNINGS_AS_ERRORS)' | tr A-Z a-z))
+	ARGS += -Wno-error
+endif
 endif
 
 
 FULLPATH := $(shell pwd)
-ifndef FIFTYONEDEGREES_DATAFILE
-	DATAFILE := 51Degrees-LiteV4.1.hash
-else
-$(warning FIFTYONEDEGREES_DATAFILE is deprecated and will be removed in a future release. Use 51DEGREES_DD_PATH with an explicit path to the data file instead.)
-	DATAFILE := $(FIFTYONEDEGREES_DATAFILE)
-endif
-
-ifndef FIFTYONEDEGREES_DATAFILE_IPI
-	DATAFILE_IPI := 51Degrees-IPIV4AsnIpiV41.ipi
-else
-$(warning FIFTYONEDEGREES_DATAFILE_IPI is deprecated and will be removed in a future release. Use 51DEGREES_IPI_PATH with an explicit path to the data file instead.)
-	DATAFILE_IPI := $(FIFTYONEDEGREES_DATAFILE_IPI)
-endif
+DATAFILE := 51Degrees-LiteV4.1.hash
+DATAFILE_IPI := 51Degrees-LiteV41.ipi
 
 MODULEPATH := $(FULLPATH)/build/modules/ngx_http_51D_module.so
 FILEPATH := $(FULLPATH)/cxx/data/device-detection/$(DATAFILE)
 FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/$(DATAFILE_IPI)
 
-# The aligned environment variable 51DEGREES_DD_PATH provides an explicit
-# path to a device detection data file and is checked first. The legacy
-# FIFTYONEDEGREES_DATAFILE name variable above is retained for backwards
-# compatibility and is combined with the expected data folder when no
-# explicit path is provided.
-ifdef 51DEGREES_DD_PATH
-	FILEPATH := $(51DEGREES_DD_PATH)
-	DATAFILE := $(notdir $(51DEGREES_DD_PATH))
+# A path to the device detection data file comes from _51DEGREES_DD_PATH,
+# set in the environment or on the make command line. When it is not set, the
+# free file in the data folder is used.
+ifdef _51DEGREES_DD_PATH
+	FILEPATH := $(_51DEGREES_DD_PATH)
+	DATAFILE := $(notdir $(_51DEGREES_DD_PATH))
 endif
 
-# The aligned environment variable 51DEGREES_IPI_PATH provides an explicit
-# path to an IP intelligence data file in the same way.
-ifdef 51DEGREES_IPI_PATH
-	FILEPATH_IPI := $(51DEGREES_IPI_PATH)
-	DATAFILE_IPI := $(notdir $(51DEGREES_IPI_PATH))
+# A path to the IP intelligence data file comes from _51DEGREES_IPI_PATH in
+# the same way.
+ifdef _51DEGREES_IPI_PATH
+	FILEPATH_IPI := $(_51DEGREES_IPI_PATH)
+	DATAFILE_IPI := $(notdir $(_51DEGREES_IPI_PATH))
 endif
+
+# A fresh clone has no data files. When the file in use is the free one the
+# examples name by default and it is missing, the data repository's script
+# downloads it. A file named any other way is never downloaded, and make stops
+# with the name that gave it when it is missing.
+DEFAULT_FILEPATH := $(FULLPATH)/cxx/data/device-detection/51Degrees-LiteV4.1.hash
+DEFAULT_FILEPATH_IPI := $(FULLPATH)/cxx/data/ip-intelligence/51Degrees-LiteV41.ipi
+GET_DATA_FILES := sh $(FULLPATH)/cxx/data/get-data-files.sh -s examples-51degrees-nginx
+ifeq ($(_51DEGREES_API),ipi)
+	INSTALL_DATA := data-file-ipi
+else ifeq ($(_51DEGREES_API),mixed)
+	INSTALL_DATA := data-file-dd data-file-ipi
+else
+	INSTALL_DATA := data-file-dd
+endif
+
+# The example make install writes as build/nginx.conf, from
+# examples/$(_51DEGREES_API), with the file it serves in build/html. With
+# _51DEGREES_API=hash it can also be config, matchMetrics, matchQuery or
+# responseHeaders/responseHeader.
+_51DEGREES_EXAMPLE := gettingStarted
 
 
 # For dynamic builds, both the device detection and IP intelligence modules
-# are built. For static builds, only the module selected by the API variable
+# are built. For static builds, only the module selected by _51DEGREES_API
 # (hash by default) is linked in. The two modules cannot be linked statically
 # into one binary as each carries its own copy of the common sources
 # compiled with different data file layout options.
-ifndef STATIC_BUILD
+ifndef _51DEGREES_STATIC_BUILD
 	MODULE_ARGS := --add-dynamic-module=$(CURDIR)/51Degrees_hash_module --add-dynamic-module=$(CURDIR)/51Degrees_ipi_module
 	# A dynamic build loads the module at runtime with load_module.
 	LOAD_MODULE := load_module $(MODULEPATH);
 	# A dynamic build loads both modules, so all of the examples run.
-	TEST_NGINX_STATIC :=
 	EXAMPLE_TESTS := tests/examples
 else
-	ifeq ($(API),ipi)
+	ifeq ($(_51DEGREES_API),ipi)
 		MODULE_ARGS := --add-module=$(CURDIR)/51Degrees_ipi_module
 		# Only the IP intelligence example uses just the IP intelligence module.
-		EXAMPLE_TESTS := tests/examples/ipiGettingStarted.t
+		EXAMPLE_TESTS := tests/examples/ipiGettingStarted.t \
+			tests/examples/ipiBadDataFile.t \
+			tests/examples/ipiPerformanceProfile.t \
+			tests/examples/signalBadDataFile.t
 	else
 		MODULE_ARGS := --add-module=$(CURDIR)/51Degrees_hash_module
 		# The device detection examples use only the device detection module.
 		# The mixed example needs both modules and so cannot run statically.
 		EXAMPLE_TESTS := tests/examples/config.t tests/examples/gettingStarted.t \
 			tests/examples/matchMetrics.t tests/examples/matchQuery.t \
-			tests/examples/responseHeader.t
+			tests/examples/responseHeader.t tests/examples/javascript.t \
+			tests/examples/signalBadDataFile.t
 	endif
 	# A static build links the module into the Nginx binary, so there is
 	# no module to load and a load_module directive would fail to open the
 	# non existent shared object.
 	LOAD_MODULE :=
-	# Tell the example tests to omit the load_module directive. Only the
-	# examples for the single linked module are run, see EXAMPLE_TESTS.
-	TEST_NGINX_STATIC := 1
+	# Only the examples for the single linked module are run. Each example
+	# test leaves load_module out when the NGINX binary has the module
+	# linked in.
 endif
 
 .PHONY hash:
@@ -107,8 +133,8 @@ clean:
 	if [ -f "nginx" ]; then \
 		rm -f nginx; \
 	fi
-	if [ -f "vendor/nginx-$(VERSION)/Makefile" ]; then \
-		cd $(CURDIR)/vendor/nginx-$(VERSION) && make clean; \
+	if [ -f "vendor/nginx-$(_51DEGREES_NGINX_VERSION)/Makefile" ]; then \
+		cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && $(MAKE) clean; \
 	fi
 	if [ "$(CLEANTESTS)" -eq "1" ]; then \
 		if [ -d "tests/nginx-tests" ]; then \
@@ -168,12 +194,12 @@ build: clean
 
 get-source:
 	if [ ! -d "vendor" ]; then mkdir vendor; fi
-	cd vendor && curl -L -O "http://nginx.org/download/nginx-$(VERSION).tar.gz"
-	cd vendor && tar xzf "nginx-$(VERSION).tar.gz"
+	cd vendor && curl -L -O "http://nginx.org/download/nginx-$(_51DEGREES_NGINX_VERSION).tar.gz"
+	cd vendor && tar xzf "nginx-$(_51DEGREES_NGINX_VERSION).tar.gz"
 
 configure: build
-	if [ ! -d "vendor/nginx-$(VERSION)" ]; then $(MAKE) get-source; fi
-	cd $(CURDIR)/vendor/nginx-$(VERSION) && \
+	if [ ! -d "vendor/nginx-$(_51DEGREES_NGINX_VERSION)" ]; then $(MAKE) get-source; fi
+	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && \
 	./configure \
 	--prefix=$(CURDIR)/build \
 	--with-ld-opt="-lm -latomic $(MEM_LD_FLAGS)" \
@@ -186,8 +212,8 @@ configure: build
 	--with-http_sub_module
 
 configure-no-module: clean
-	if [ ! -d "vendor/nginx-$(VERSION)" ]; then $(MAKE) get-source; fi
-	cd $(CURDIR)/vendor/nginx-$(VERSION) && \
+	if [ ! -d "vendor/nginx-$(_51DEGREES_NGINX_VERSION)" ]; then $(MAKE) get-source; fi
+	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && \
 	./configure \
 	--prefix=$(CURDIR)/build \
 	--with-compat \
@@ -196,36 +222,59 @@ configure-no-module: clean
 	--conf-path="nginx.conf" \
 	--with-http_sub_module
 
-install: configure
-	cd $(CURDIR)/vendor/nginx-$(VERSION) && make install
-	sed "/\/\*\*/,/\*\//d" examples/$(API)/gettingStarted.conf > build/nginx.conf
+.PHONY: data-file-dd data-file-ipi
+
+data-file-dd:
+ifeq ($(FILEPATH),$(DEFAULT_FILEPATH))
+	@[ -f "$(FILEPATH)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH))
+else
+	@[ -f "$(FILEPATH)" ] || { echo "_51DEGREES_DD_PATH is set to $(FILEPATH), which does not exist."; exit 1; }
+endif
+
+data-file-ipi:
+ifeq ($(FILEPATH_IPI),$(DEFAULT_FILEPATH_IPI))
+	@[ -f "$(FILEPATH_IPI)" ] || $(GET_DATA_FILES) $(notdir $(FILEPATH_IPI))
+else
+	@[ -f "$(FILEPATH_IPI)" ] || { echo "_51DEGREES_IPI_PATH is set to $(FILEPATH_IPI), which does not exist."; exit 1; }
+endif
+
+install: $(INSTALL_DATA) configure
+	@[ -f "examples/$(_51DEGREES_API)/$(_51DEGREES_EXAMPLE).conf" ] || { echo "There is no example examples/$(_51DEGREES_API)/$(_51DEGREES_EXAMPLE).conf"; exit 1; }
+	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && $(MAKE) install
+	sed "/\/\*\*/,/\*\//d" examples/$(_51DEGREES_API)/$(_51DEGREES_EXAMPLE).conf > build/nginx.conf
 	sed -i "s!%%DAEMON_MODE%%!on!g" build/nginx.conf
 	sed -i "s!%%MODULE_PATH%%!!g" build/nginx.conf
 	sed -i "s!%%FILE_PATH%%!$(FILEPATH)!g" build/nginx.conf
 	sed -i "s!%%FILE_PATH_IPI%%!$(FILEPATH_IPI)!g" build/nginx.conf
 	sed -i "s!%%TEST_GLOBALS%%!!g" build/nginx.conf
 	sed -i "s!%%TEST_GLOBALS_HTTP%%!!g" build/nginx.conf
-ifdef STATIC_BUILD
+ifdef _51DEGREES_STATIC_BUILD
 	# The module is linked into the Nginx binary, so remove the
 	# load_module directive which would otherwise fail to open a shared
 	# object that a static build does not produce.
 	sed -i "/load_module/d" build/nginx.conf
 endif
-	echo > build/html/$(API)
+	case "$(_51DEGREES_EXAMPLE)" in \
+		config) echo > build/html/config ;; \
+		matchMetrics) echo > build/html/metrics ;; \
+		matchQuery) echo > build/html/query ;; \
+		responseHeaders/responseHeader) cp examples/hash/responseHeaders/response.html build/html/ ;; \
+		*) echo > build/html/$(_51DEGREES_API) ;; \
+	esac
 
 install-no-module: configure-no-module	
-	cd $(CURDIR)/vendor/nginx-$(VERSION) && make install
+	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && $(MAKE) install
 
 module: configure
-	cd $(CURDIR)/vendor/nginx-$(VERSION) && make modules
+	cd $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION) && $(MAKE) modules
 	if [ ! -d "build/modules" ]; then mkdir -p build/modules; fi
-	cp $(CURDIR)/vendor/nginx-$(VERSION)/objs/*.so build/modules
+	cp $(CURDIR)/vendor/nginx-$(_51DEGREES_NGINX_VERSION)/objs/*.so build/modules
 
 all-versions:
 	mkdir modules
 	$(foreach version, \
 		1.19.0 1.19.5 1.19.8 1.20.0, \
-		$(MAKE) module VERSION=$(version); \
+		$(MAKE) module _51DEGREES_NGINX_VERSION=$(version); \
 		mv build/modules/ngx_http_51D_module.so modules/ngx_http_51D_hash_module-$(version).so; \
 		mv build/modules/ngx_http_51D_ipi_module.so modules/ngx_http_51D_ipi_module-$(version).so;)
 
@@ -241,29 +290,31 @@ test-prep:
 		curl -fL "https://github.com/nginx/nginx-tests/archive/refs/heads/master.tar.gz" \
 		| tar -xzC tests/nginx-tests --strip-components 1; \
 	fi;
+	perl tests/sanitizer-check.pl tests/nginx-tests/lib/Test/Nginx.pm
 
-test-full:
-	$(MAKE) test TESTS="$(TESTS) tests/nginx-tests"
+# The module's tests together with NGINX's own.
+test-full: TESTS += tests/nginx-tests
+test-full: test
 
-test-examples: test-prep
+test-examples: test-prep data-file-dd data-file-ipi
 ifeq (,$(wildcard $(FULLPATH)/nginx))
 	$(error Local binary must be built first (use "make install"))
 else
-	$(eval CMD := TEST_NGINX_BINARY="$(FULLPATH)/nginx" TEST_MODULE_PATH="$(FULLPATH)/build/" TEST_NGINX_STATIC="$(TEST_NGINX_STATIC)" TEST_FILE_PATH="$(FILEPATH)" TEST_FILE_PATH_IPI="$(FILEPATH_IPI)" ASAN_OPTIONS=detect_odr_violation=0 LSAN_OPTIONS=suppressions=suppressions.txt prove $(FIFTYONEDEGREES_FORMATTER) -v $(EXAMPLE_TESTS) :: $(DATAFILE))
-ifdef FIFTYONEDEGREES_TEST_OUTPUT
-	$(CMD) > $(FIFTYONEDEGREES_TEST_OUTPUT)
+	$(eval CMD := TEST_NGINX_BINARY="$(FULLPATH)/nginx" _51DEGREES_DD_PATH="$(FILEPATH)" _51DEGREES_IPI_PATH="$(FILEPATH_IPI)" ASAN_OPTIONS=detect_odr_violation=0 LSAN_OPTIONS=suppressions=suppressions.txt prove $(FORMATTER) -v $(EXAMPLE_TESTS) :: $(DATAFILE))
+ifdef _51DEGREES_TEST_OUTPUT
+	$(CMD) > $(_51DEGREES_TEST_OUTPUT)
 else
 	$(CMD)
 endif
 endif
 
-test: test-prep
+test: test-prep data-file-dd
 ifeq (,$(wildcard $(FULLPATH)/nginx))
 	$(error Local binary must be built first (use "make install"))
 else
-	$(eval CMD := TEST_NGINX_BINARY="$(FULLPATH)/nginx" TEST_NGINX_GLOBALS="$(LOAD_MODULE)" TEST_NGINX_GLOBALS_HTTP="51D_file_path $(FILEPATH);" ASAN_OPTIONS=detect_odr_violation=0 LSAN_OPTIONS=suppressions=suppressions.txt prove $(FIFTYONEDEGREES_FORMATTER) -v $(TESTS) :: $(DATAFILE))
-ifdef FIFTYONEDEGREES_TEST_OUTPUT
-	$(CMD) > $(FIFTYONEDEGREES_TEST_OUTPUT)
+	$(eval CMD := TEST_NGINX_BINARY="$(FULLPATH)/nginx" TEST_NGINX_GLOBALS="$(LOAD_MODULE)" TEST_NGINX_GLOBALS_HTTP="51D_file_path $(FILEPATH);" ASAN_OPTIONS=detect_odr_violation=0 LSAN_OPTIONS=suppressions=suppressions.txt prove $(FORMATTER) -v $(TESTS) :: $(DATAFILE))
+ifdef _51DEGREES_TEST_OUTPUT
+	$(CMD) > $(_51DEGREES_TEST_OUTPUT)
 else
 	$(CMD)
 endif

@@ -10,7 +10,7 @@ events {
 }
 
 http {
-    51D_file_path ${DATA_FILE_DIR}/51Degrees-LiteV4.1.hash;
+    51D_file_path ${DATA_FILE};
 
 	51D_value_separator ^sep^;
 	51D_allow_unmatched on;

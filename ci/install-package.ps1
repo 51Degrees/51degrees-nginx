@@ -6,6 +6,12 @@ param(
     [string]$NginxVersion = ""
 )
 
+# A warning stops 51Degrees' own builds. Until the shared workflows set this
+# for every job, the build scripts set it.
+if (!$env:_51DEGREES_WARNINGS_AS_ERRORS) {
+    $env:_51DEGREES_WARNINGS_AS_ERRORS = 'true'
+}
+
 # Combine the current working directory with the repository name
 $RepoPath = [IO.Path]::Combine($pwd, $RepoName)
 
@@ -27,7 +33,7 @@ try {
 
         # Install NGINX without building the module.
         Write-Output "Install NGINX '$NginxVersion' without 51Degrees module"
-        make install-no-module FIFTYONEDEGREES_NGINX_VERSION=$NginxVersion
+        make install-no-module _51DEGREES_NGINX_VERSION=$NginxVersion
 
         # Now copy both modules to the installs module directory
         mkdir $ModulesPath

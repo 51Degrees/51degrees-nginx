@@ -1,4 +1,14 @@
 #!/bin/bash
+# Times requests through NGINX, each making one detection. Run it from the
+# folder CMake built in.
+#
+#   ./runPerf.sh [hash|ipi]
+#
+# The engine is hash for device detection, the default, or ipi for IP
+# Intelligence. The data file is the one _51DEGREES_DD_PATH names for hash,
+# or _51DEGREES_IPI_PATH for ipi. When the name is not set, the free Lite
+# device detection file or the free Asn IP Intelligence file in cxx/data is
+# used.
 
 # Constants
 FULLPATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -11,23 +21,22 @@ PERF=./ApacheBench-prefix/src/ApacheBench-build/bin/runPerf.sh
 # processors, matching the worker_processes auto setting in the config
 # templates, so that all of the Nginx workers are exercised at once. This
 # mirrors the multi threaded benchmarks of the other 51Degrees APIs rather
-# than measuring a single request at a time. Override with CONCURRENCY.
-CONCURRENCY=${CONCURRENCY:-$(nproc)}
+# than measuring a single request at a time.
+CONCURRENCY=$(nproc)
 
 # Number of requests per worker. The total passed to ApacheBench scales
 # with the concurrency so that each phase runs for the same wall-clock
 # time however many processors the machine has.
-PASSES_PER_WORKER=${PASSES_PER_WORKER:-20000}
+PASSES_PER_WORKER=20000
 PASSES=$((PASSES_PER_WORKER * CONCURRENCY))
 
 # The engine to test. Either 'hash' (device detection, the default) or
 # 'ipi' (IP intelligence).
-ENGINE=${ENGINE:-hash}
-
-# Evidence file passed to the benchmark. Empty by default, which leaves the
-# harness rotating the User-Agents file. Set for the device detection
-# engine below when an evidence file is available.
-EVIDENCE=
+ENGINE=${1:-hash}
+if [ "$ENGINE" != "hash" ] && [ "$ENGINE" != "ipi" ]; then
+	echo "The engine is hash or ipi, not $ENGINE"
+	exit 1
+fi
 
 # Get the repo directory as an absolute path
 ORIGINPATH="$(pwd)"
@@ -37,41 +46,31 @@ cd $ORIGINPATH
 
 echo $REPO_DIR
 
-# Create the nginx.conf
+# Create the nginx.conf, and choose the evidence the benchmark sends. Each
+# request carries the header lines of one record of a YAML evidence file.
 MODULES_DIR=$REPO_DIR/build/modules
 if [ "$ENGINE" == "ipi" ]; then
-	DATA_FILE_DIR_IPI=$REPO_DIR/cxx/data/ip-intelligence
-	sed "s/\${MODULES_DIR}/${MODULES_DIR//\//\\/}/g" ./nginx.conf.ipi.template > ./nginx.conf
-	sed -i "s/\${DATA_FILE_DIR_IPI}/${DATA_FILE_DIR_IPI//\//\\/}/g" ./nginx.conf
-	if [ "$DATA_FILE_NAME_IPI" ]; then
-		sed -i "s/51Degrees-IPIV4AsnIpiV41\.ipi/${DATA_FILE_NAME_IPI}/g" nginx.conf
-	fi
-	# The benchmark harness rotates through the lines of uas.csv using the
-	# User-Agent header. Replace it with the IP addresses evidence file so
-	# that each request carries an IP address, and keep a backup to restore
-	# after the run.
-	if [ ! -f uas.csv.bkp ]; then
-		cp uas.csv uas.csv.bkp
-	fi
-	cp $REPO_DIR/cxx/data/ip-intelligence/evidence.csv uas.csv
+	DATA_FILE_IPI=${_51DEGREES_IPI_PATH:-$REPO_DIR/cxx/data/ip-intelligence/51Degrees-IPIV4AsnIpiV41.ipi}
+	sed "s|\${MODULES_DIR}|${MODULES_DIR}|g" ./nginx.conf.ipi.template > ./nginx.conf
+	sed -i "s|\${DATA_FILE_IPI}|${DATA_FILE_IPI}|g" ./nginx.conf
+	# A record of the IP Intelligence evidence file holds one IP address,
+	# which is not a header. The address is sent as the User-Agent header,
+	# where the configuration reads it, so that each request carries a
+	# different address.
+	EVIDENCE="$FULLPATH/evidence.ipi.yml"
+	sed 's/^server\.client-ip: /header.User-Agent: /' \
+		"$REPO_DIR/cxx/data/ip-intelligence/evidence.yml" > "$EVIDENCE"
 else
-	DATA_FILE_DIR=$REPO_DIR/cxx/data/device-detection
-	sed "s/\${MODULES_DIR}/${MODULES_DIR//\//\\/}/g" ./nginx.conf.template > ./nginx.conf
-	sed -i "s/\${DATA_FILE_DIR}/${DATA_FILE_DIR//\//\\/}/g" ./nginx.conf
-	if [ "$DATA_FILE_NAME" ]; then
-		sed -i "s/51Degrees-LiteV4\.1\.hash/${DATA_FILE_NAME}/g" nginx.conf
-	fi
-	# Restore the User-Agents file if a previous IP intelligence run
-	# replaced it.
-	if [ -f uas.csv.bkp ]; then
-		mv uas.csv.bkp uas.csv
-	fi
+	DATA_FILE=${_51DEGREES_DD_PATH:-$REPO_DIR/cxx/data/device-detection/51Degrees-LiteV4.1.hash}
+	sed "s|\${MODULES_DIR}|${MODULES_DIR}|g" ./nginx.conf.template > ./nginx.conf
+	sed -i "s|\${DATA_FILE}|${DATA_FILE}|g" ./nginx.conf
 	# Send the full evidence records, matching the other 51Degrees API
-	# benchmarks, when the evidence file is available. Otherwise fall back
-	# to the User-Agents file the harness uses by default.
-	if [ -f "$FULLPATH/evidence.yml" ]; then
-		EVIDENCE="$FULLPATH/evidence.yml"
-	fi
+	# benchmarks. CMake copies the file here.
+	EVIDENCE="$FULLPATH/evidence.yml"
+fi
+if [ ! -s "$EVIDENCE" ]; then
+	echo "The evidence file $EVIDENCE is missing or empty"
+	exit 1
 fi
 
 # Create required directories and target files for service
@@ -86,19 +85,10 @@ mv $REPO_DIR/build/nginx.conf $REPO_DIR/build/nginx.conf.bkp
 cp $FULLPATH/nginx.conf $REPO_DIR/build/nginx.conf
 
 # Run the performrance
-if [ -n "$EVIDENCE" ]; then
-	$PERF -n $PASSES -s "$REPO_DIR/nginx" -t "$REPO_DIR/nginx -s stop" -c $CAL -p $PRO -h $HOST -k $CONCURRENCY -E "$EVIDENCE"
-else
-	$PERF -n $PASSES -s "$REPO_DIR/nginx" -t "$REPO_DIR/nginx -s stop" -c $CAL -p $PRO -h $HOST -k $CONCURRENCY
-fi
+$PERF -n $PASSES -s "$REPO_DIR/nginx" -t "$REPO_DIR/nginx -s stop" -c $CAL -p $PRO -h $HOST -k $CONCURRENCY -E "$EVIDENCE"
 
 # Replace the original config
 mv $REPO_DIR/build/nginx.conf.bkp $REPO_DIR/build/nginx.conf
-
-# Restore the User-Agents file if this was an IP intelligence run.
-if [ -f uas.csv.bkp ]; then
-	mv uas.csv.bkp uas.csv
-fi
 
 # Remove coredumps folder
 if [ ! "$(find coredumps -type f)" ]; then

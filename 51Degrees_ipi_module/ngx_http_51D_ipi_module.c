@@ -92,6 +92,21 @@
 #define FIFTYONE_DEGREES_IPI_CONFIG_LEVELS 3
 
 /**
+ * Performance profiles that 51D_performance_profile_ipi can set. Each holds
+ * what lookups read in the shared memory the master process fills before it
+ * starts the workers, and HighPerformance holds only what the named
+ * properties read. Balanced is not offered, because its caches change during
+ * lookups, and the memory they add and the locks that guard them belong to
+ * one process. LowMemory is not offered, because every lookup reads the file
+ * through handles the workers share, and a worker waiting for a handle can
+ * only be woken by a thread of its own process.
+ */
+typedef enum {
+	ngx_http_51D_ipi_profile_in_memory = 1,
+	ngx_http_51D_ipi_profile_high_performance
+} ngx_http_51D_ipi_performance_profile;
+
+/**
  * Global module declaration.
  */
 ngx_module_t ngx_http_51D_ipi_module;
@@ -133,6 +148,11 @@ static ngx_atomic_t ngx_http_51D_ipi_shm_tag = 1;
  * Count number of current worker processes.
  */
 static ngx_atomic_t *ngx_http_51D_ipi_worker_count;
+/**
+ * The resource manager the master process last initialised, so that a reload
+ * can close the master's handles to the data file it replaces.
+ */
+static ResourceManager *ngx_http_51D_ipi_loaded_manager = NULL;
 
 /**
  * Structure containing details of a specific header to be set as per the
@@ -186,6 +206,9 @@ typedef struct {
 	ngx_str_t valueSeparator;          /**< Match header value separator. */
 	ngx_uint_t maxConcurrency;         /**< 51Degrees max concurrency value
 	                                        to set. */
+	ngx_uint_t performanceProfile;     /**< One of
+	                                        ngx_http_51D_ipi_performance_profile,
+	                                        HighPerformance by default. */
 	ngx_http_51D_ipi_match_conf_t matchConf; /**< The match to carry out in
 	                                              this block's locations. */
 } ngx_http_51D_ipi_main_conf_t;
@@ -257,14 +280,20 @@ report_insufficient_memory_status(
 
 /**
  * Get a fiftyoneDegreesConfigIpi instance based on the main configuration.
- * Only the in memory performance profile is supported as the data set is
- * held in shared memory.
+ * HighPerformance with some properties named holds only what they read, so
+ * it needs less shared memory than InMemory, and a lookup that reads them
+ * reads nothing from the file. The rest of the data file stays on file, and
+ * the master's file handles are inherited by each worker. The handles are
+ * taken from a list in shared memory, so only one process reads through a
+ * handle at a time.
  * @param fdmcf main configuration
  * @return fiftyoneDegreesConfigIpi instance
  */
 static ConfigIpi
 get_config_ipi(ngx_http_51D_ipi_main_conf_t *fdmcf) {
-	ConfigIpi config = IpiInMemoryConfig;
+	ConfigIpi config =
+		fdmcf->performanceProfile == ngx_http_51D_ipi_profile_in_memory ?
+		IpiInMemoryConfig : IpiHighPerformanceConfig;
 
 	// Max concurrency is always set to the number of worker processes
 	if (fdmcf->maxConcurrency != NGX_CONF_UNSET_UINT) {
@@ -282,6 +311,18 @@ get_config_ipi(ngx_http_51D_ipi_main_conf_t *fdmcf) {
 	}
 
 	return config;
+}
+
+/**
+ * Get the name of the performance profile in the main configuration, as the
+ * engine names it.
+ * @param fdmcf main configuration
+ * @return the name of the profile
+ */
+static const char *
+get_profile_name_ipi(ngx_http_51D_ipi_main_conf_t *fdmcf) {
+	return fdmcf->performanceProfile == ngx_http_51D_ipi_profile_in_memory ?
+		"InMemory" : "HighPerformance";
 }
 
 /**
@@ -340,6 +381,11 @@ ngx_http_51D_ipi_post_conf(ngx_conf_t *cf)
 		fdmcf->valueSeparator.len = ngx_strlen(fdmcf->valueSeparator.data);
 	}
 
+	// Use HighPerformance unless 51D_performance_profile_ipi says otherwise.
+	ngx_conf_init_uint_value(
+		fdmcf->performanceProfile,
+		ngx_http_51D_ipi_profile_high_performance);
+
 	// Check if a data file was set.
 	if ((int)fdmcf->dataFile.len <= 0) {
 		ngx_conf_log_error(
@@ -352,6 +398,12 @@ ngx_http_51D_ipi_post_conf(ngx_conf_t *cf)
 			cf->cycle->log,
 			0,
 			"51D_file_path_ipi was not set. No resource was loaded.");
+		return NGX_OK;
+	}
+
+	// nginx -s only sends a signal to the running master, which reads the
+	// data file itself, so this process neither reads it nor needs memory.
+	if (ngx_process == NGX_PROCESS_SIGNALLER) {
 		return NGX_OK;
 	}
 
@@ -375,7 +427,9 @@ ngx_http_51D_ipi_post_conf(ngx_conf_t *cf)
 		&properties,
 		(const char *)fdmcf->dataFile.data,
 		exception);
-	if ((int)size < 1 || EXCEPTION_FAILED) {
+	// The size is compared as a size_t, because a data set of 2 GB or more
+	// does not fit an int.
+	if (size == 0 || EXCEPTION_FAILED) {
 		// If there was a problem, throw an error.
 		return report_status(
 			cf->cycle->log,
@@ -436,6 +490,7 @@ ngx_http_51D_ipi_create_main_conf(ngx_conf_t *cf)
 	}
 
 	conf->maxConcurrency = ccf->worker_processes;
+	conf->performanceProfile = NGX_CONF_UNSET_UINT;
 
 	memset(conf->properties, 0, FIFTYONE_DEGREES_IPI_MAX_PROPS_STRING);
 	conf->dataFile = (ngx_str_t)ngx_null_string;
@@ -637,6 +692,46 @@ ngx_http_51D_ipi_init_shm_resource_manager(
 }
 
 /**
+ * Records the data set the master process has loaded, and closes the master's
+ * copies of the data file handles of the one it replaces. The workers still
+ * using that data set hold their own copies, and the list of handles in shared
+ * memory is left as it is, because those workers may still be answering
+ * requests. Without this the master keeps every replaced data file open, so
+ * one replaced on disk never frees its space. NGINX releases the replaced
+ * shared memory after this module's init function returns, so the list can
+ * still be read here.
+ * @param manager the resource manager of the data set now loaded, or NULL
+ * when there is none.
+ */
+static void
+ngx_http_51D_ipi_replace_loaded_manager(ResourceManager *manager)
+{
+	ResourceManager *replaced = ngx_http_51D_ipi_loaded_manager;
+	DataSetIpi *dataSet;
+	Pool *pool;
+	uint16_t i;
+
+	ngx_http_51D_ipi_loaded_manager = manager;
+	if (replaced == NULL) {
+		return;
+	}
+	dataSet = (DataSetIpi *)replaced->active->resource;
+	pool = &dataSet->b.b.filePool.pool;
+
+	// InMemory has no handles.
+	if (pool->stack == NULL) {
+		return;
+	}
+
+	// The first item marks the end of the list and has no handle.
+	for (i = 1; i <= pool->count; i++) {
+		if (pool->stack[i].resource != NULL) {
+			fclose((FILE *)pool->stack[i].resource);
+		}
+	}
+}
+
+/**
  * Init module function. Initialises the resource manager with the given
  * initialisation parameters. Throws an error if the resource manager could
  * not be initialised.
@@ -653,7 +748,14 @@ ngx_http_51D_ipi_init_module(ngx_cycle_t *cycle)
 	fdmcf = ngx_http_cycle_get_module_main_conf(
 		cycle, ngx_http_51D_ipi_module);
 
+	// Where this configuration has no data file, or no http block, post_conf
+	// leaves the zone of the configuration it replaces in place, so it is
+	// cleared here, which runs only once NGINX has committed to this one.
+	if (fdmcf == NULL || fdmcf->dataFile.len == 0) {
+		ngx_http_51D_ipi_shm_resource_manager = NULL;
+	}
 	if (ngx_http_51D_ipi_shm_resource_manager == NULL) {
+		ngx_http_51D_ipi_replace_loaded_manager(NULL);
 		return NGX_OK;
 	}
 	fdmcf->resourceManager =
@@ -702,6 +804,18 @@ ngx_http_51D_ipi_init_module(ngx_cycle_t *cycle)
 			exception->status,
 			(const char *)fdmcf->dataFile.data);
 	}
+
+	ngx_http_51D_ipi_replace_loaded_manager(fdmcf->resourceManager);
+
+	ngx_log_error(
+		NGX_LOG_NOTICE,
+		cycle->log,
+		0,
+		"51Degrees IP intelligence uses the %s profile, with %uz bytes of "
+		"shared memory, for \"%V\"",
+		get_profile_name_ipi(fdmcf),
+		ngx_http_51D_ipi_shm_resource_manager->shm.size,
+		&fdmcf->dataFile);
 
 	return NGX_OK;
 }
@@ -805,6 +919,16 @@ ngx_http_51D_ipi_exit_master(ngx_cycle_t *cycle)
 }
 
 /**
+ * The values 51D_performance_profile_ipi takes, and the profile of each.
+ */
+static ngx_conf_enum_t ngx_http_51D_ipi_performance_profiles[] = {
+	{ ngx_string("HIGH_PERFORMANCE"),
+		ngx_http_51D_ipi_profile_high_performance },
+	{ ngx_string("IN_MEMORY"), ngx_http_51D_ipi_profile_in_memory },
+	{ ngx_null_string, 0 }
+};
+
+/**
  * Definitions of the directives which can be called from the config file.
  * --51D_match_ipi takes two string arguments, the name of the header to be
  * set and a comma separated list of properties to be returned. The third
@@ -815,6 +939,9 @@ ngx_http_51D_ipi_exit_master(ngx_cycle_t *cycle)
  * IP intelligence data file. Is called within the main block.
  * --51D_value_separator_ipi takes one string argument, the separator of
  * the values being returned.
+ * --51D_performance_profile_ipi takes one enum argument, the performance
+ * profile, "HIGH_PERFORMANCE" (the default) or "IN_MEMORY". Is called within
+ * the main block.
  */
 static ngx_command_t ngx_http_51D_ipi_commands[] = {
 
@@ -852,6 +979,13 @@ static ngx_command_t ngx_http_51D_ipi_commands[] = {
 	NGX_HTTP_MAIN_CONF_OFFSET,
 	offsetof(ngx_http_51D_ipi_main_conf_t, valueSeparator),
 	NULL },
+
+	{ ngx_string("51D_performance_profile_ipi"),
+	NGX_HTTP_MAIN_CONF|NGX_CONF_TAKE1,
+	ngx_conf_set_enum_slot,
+	NGX_HTTP_MAIN_CONF_OFFSET,
+	offsetof(ngx_http_51D_ipi_main_conf_t, performanceProfile),
+	&ngx_http_51D_ipi_performance_profiles },
 
 	ngx_null_command
 };
@@ -1025,13 +1159,16 @@ get_evidence_from_variable(ngx_http_request_t *r, ngx_str_t *variableName) {
 
 /**
  * Get match function. Performs an IP intelligence match for the IP
- * address provided.
+ * address provided. A value that is not all one address is not read, as
+ * the IP Intelligence specification's "Reading the client IP value" says,
+ * and that is not an error, so nothing is logged for it.
  * @param fdmcf module main config.
  * @param r the current HTTP request.
  * @param ipAddress the IP address to perform the match on.
- * @return Nginx status code.
+ * @return NGX_OK for a match, NGX_DECLINED for a value that is not read,
+ * or NGX_ERROR.
  */
-static ngx_uint_t ngx_http_51D_ipi_get_match(
+static ngx_int_t ngx_http_51D_ipi_get_match(
 	ngx_http_51D_ipi_main_conf_t *fdmcf,
 	ngx_http_request_t *r,
 	ngx_str_t *ipAddress)
@@ -1043,6 +1180,10 @@ static ngx_uint_t ngx_http_51D_ipi_get_match(
 		ipAddress->len,
 		exception);
 	if (EXCEPTION_FAILED) {
+		if (exception->status ==
+			FIFTYONE_DEGREES_STATUS_INCORRECT_IP_ADDRESS_FORMAT) {
+			return NGX_DECLINED;
+		}
 		return report_status(
 			r->connection->log,
 			exception->status,
@@ -1061,13 +1202,16 @@ static ngx_uint_t ngx_http_51D_ipi_get_match(
  * @param requiredPropertyName the name of the property to get the value
  * for.
  * @param length the size allocated to the values_string variable.
+ * @param addressRead zero when the IP address was not read, which gives no
+ * value whatever the results hold.
  */
 static void ngx_http_51D_ipi_get_value(
 	ngx_http_51D_ipi_main_conf_t *fdmcf,
 	ngx_http_request_t *r,
 	char *values_string,
 	const char *requiredPropertyName,
-	size_t length)
+	size_t length,
+	int addressRead)
 {
 	size_t remainingLength = length - strlen(values_string);
 	ResultsIpi *results = fdmcf->results;
@@ -1090,7 +1234,7 @@ static void ngx_http_51D_ipi_get_value(
 			PropertiesGetRequiredPropertyIndexFromName(
 				dataSet->b.b.available, requiredPropertyName);
 
-		bool hasValues = ResultsIpiGetHasValues(
+		bool hasValues = addressRead != 0 && ResultsIpiGetHasValues(
 			results,
 			requiredPropertyIndex,
 			exception);
@@ -1143,6 +1287,8 @@ static void ngx_http_51D_ipi_get_value(
  * @param haveMatch whether a match has already been performed for the
  * input IP address.
  * @param ipAddress an IP address string to perform the match on.
+ * @param addressRead set to zero when the IP address is not read, so every
+ * property has no value, and to one otherwise.
  * @return an escaped value string. NULL if an error occurred.
  */
 static u_char *getEscapedMatchedValueString(
@@ -1150,16 +1296,21 @@ static u_char *getEscapedMatchedValueString(
 	ngx_http_51D_ipi_main_conf_t *fdmcf,
 	ngx_http_51D_ipi_data_to_set *header,
 	int haveMatch,
-	ngx_str_t *ipAddress)
+	ngx_str_t *ipAddress,
+	int *addressRead)
 {
 	memset(fdmcf->valueString, 0, FIFTYONE_DEGREES_IPI_MAX_STRING);
+	*addressRead = 1;
 
 	// Get a match. If there are multiple instances of 51D_match_ipi, then
 	// don't get the match if it has already been fetched.
 	if (haveMatch == 0) {
-		ngx_uint_t ngxCode =
+		ngx_int_t ngxCode =
 			ngx_http_51D_ipi_get_match(fdmcf, r, ipAddress);
-		if (ngxCode != NGX_OK) {
+		if (ngxCode == NGX_DECLINED) {
+			*addressRead = 0;
+		}
+		else if (ngxCode != NGX_OK) {
 			return NULL;
 		}
 	}
@@ -1174,7 +1325,8 @@ static u_char *getEscapedMatchedValueString(
 			r,
 			fdmcf->valueString,
 			(const char *)header->property[property_index]->data,
-			FIFTYONE_DEGREES_IPI_MAX_STRING);
+			FIFTYONE_DEGREES_IPI_MAX_STRING,
+			*addressRead);
 	}
 
 	// Escape characters which cannot be added in a header value, most
@@ -1206,7 +1358,9 @@ static u_char *getEscapedMatchedValueString(
  * @param haveMatch indicates if a match has already been performed for the
  * input IP address
  * @param ipAddress the IP address to perform the match for
- * @return code to indicate the status of the operation.
+ * @return NGX_OK when the header holds the values of a match for the IP
+ * address, NGX_DECLINED when the address was not read and the header holds
+ * no value, so the results must not be reused for it, or NGX_ERROR.
  */
 static ngx_uint_t
 process(ngx_http_request_t *r,
@@ -1216,8 +1370,9 @@ process(ngx_http_request_t *r,
 		ngx_str_t *ipAddress)
 {
 	ngx_table_elt_t *h;
+	int addressRead;
 	u_char *escapedValueString = getEscapedMatchedValueString(
-		r, fdmcf, header, haveMatch, ipAddress);
+		r, fdmcf, header, haveMatch, ipAddress, &addressRead);
 	if (escapedValueString == NULL) {
 		return NGX_ERROR;
 	}
@@ -1234,7 +1389,7 @@ process(ngx_http_request_t *r,
 	h->value.data = escapedValueString;
 	h->value.len = ngx_strlen(h->value.data);
 	h->lowcase_key = (u_char *)header->lowerHeaderName.data;
-	return NGX_OK;
+	return addressRead ? NGX_OK : NGX_DECLINED;
 }
 
 /**
@@ -1375,7 +1530,8 @@ set_data(
 	ngx_str_t *value,
 	ngx_http_51D_ipi_main_conf_t *fdmcf)
 {
-	char *tok, *tokPos = NULL, *saveptr = NULL;
+	char *tok, *saveptr = NULL;
+	const char *tokPos = NULL;
 	int propertiesCount, charPos;
 	char *propertiesString;
 
